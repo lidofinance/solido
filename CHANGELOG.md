@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.3.5
+
+Released 2022-09-29.
+
+The on-chain Solido program remains functionally unchanged since v1.0.0. The
+Anker program remains unchanged since v1.3.0.
+
+Changes:
+
+ * Pulled changes from ChorusOne v1.3.4.
+
+Bugfixes:
+
+ * Fixed crush in CLI client at Deactivate Validator operation.
+
 ## v1.3.4
 
 Released 2022-09-27.

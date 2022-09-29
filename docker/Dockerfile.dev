@@ -50,4 +50,3 @@ RUN cd $SOLIDORELEASEPATH/cli \
     && sha256sum listener >> listener.hash
 
 WORKDIR $SOLPATH
-
