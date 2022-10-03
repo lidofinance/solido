@@ -7,7 +7,7 @@
 VERSION=$(git rev-parse --short HEAD)
 TAG="guyos/solido:$VERSION"
 BASETAG="guyos/solido-base"
-SOLIPATH="/root/.local/share/solana/install/releases/1.8.16/solana-release/bin/solido"
+SOLIPATH="/root/.local/share/solana/install/releases/1.9.28/solana-release/bin/solido"
 
 
 # 2. Build container image
