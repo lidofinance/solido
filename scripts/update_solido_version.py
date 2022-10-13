@@ -2,34 +2,6 @@
 
 """
 This script has multiple options to update Solido state version
-
-Usage:
-    $ls
-    solido/
-    solido_old/
-    solido_test.json
-
-    $cd solido_old
-
-    ../solido/scripts/update_solido_version.py --config ../solido_test.json deactivate-validators --keypair-path ./tests/.keys/maintainer.json > output
-
-    ./target/debug/solido --config ../solido_test.json --keypair-path ./tests/.keys/maintainer.json multisig approve-batch --transaction-addresses-path output
-
-    # Perfom maintainance till validator list is empty, wait for epoch boundary if on mainnet
-    ./target/debug/solido --config ../solido_test.json --keypair-path tests/.keys/maintainer.json perform-maintenance
-
-    ../solido/scripts/update_solido_version.py --config ../solido_test.json load-program --keypair-path ./tests/.keys/maintainer.json --program-filepath ../solido/target/deploy/lido.so > output
-
-    ./target/debug/solido --config ../solido_test.json --keypair-path ./tests/.keys/maintainer.json multisig approve-batch --transaction-addresses-path output
-
-    # cretae developer account owner Fp572FrBjhWprtT7JF4CHgeLzPD9g8s2Ht7k5bdaWjwF
-    # solana-keygen new --no-bip39-passphrase --silent --outfile ~/developer_fee_key.json
-    solana --url localhost transfer --allow-unfunded-recipient ./tests/.keys/maintainer.json 32.0
-
-    $cd ../solido
-    scripts/update_solido_version.py --config ../solido_test.json propose-migrate --keypair-path ../solido_old/tests/.keys/maintainer.json > output
-
-    ./target/debug/solido --config ../solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json multisig approve-batch --transaction-addresses-path output
 """
 
 
@@ -72,22 +44,11 @@ if __name__ == '__main__':
     )
 
     current_parser = subparsers.add_parser(
-        'execute-transactions', help='Execute multisig transactions from stdin'
-    )
-
-    current_parser = subparsers.add_parser(
         'load-program',
         help='Write program from `program-filepath` to a random buffer address.',
     )
     current_parser.add_argument(
         "--program-filepath", help='/path/to/program.so', required=True
-    )
-
-    current_parser = subparsers.add_parser(
-        'propose-migrate', help='Update solido state to a version 2'
-    )
-    current_parser.add_argument(
-        "--keypair-path", type=str, help='Signer keypair path', required=True
     )
 
     args = parser.parse_args()
@@ -114,17 +75,6 @@ if __name__ == '__main__':
             )
 
             print(result['transaction_address'])
-
-    elif args.command == "execute-transactions":
-        for line in sys.stdin:
-            solido(
-                '--config',
-                args.config,
-                'multisig',
-                'execute-transaction',
-                '--transaction-address',
-                line.strip(),
-            )
 
     elif args.command == "load-program":
         lido_state = solido('--config', args.config, 'show-solido')
@@ -160,27 +110,6 @@ if __name__ == '__main__':
             write_result['buffer'],
         )
         print(write_result['buffer'])
-
-    elif args.command == "propose-migrate":
-        update_result = solido(
-            '--config',
-            args.config,
-            'migrate-state-to-v2',
-            '--developer-account-owner',
-            '2d7gxHrVHw2grzWBdRQcWS7T1r9KnaaGXZBtzPBbzHEF',
-            '--st-sol-mint',
-            config['st_sol_mint'],
-            '--developer-fee-share',
-            '1',
-            '--treasury-fee-share',
-            '4',
-            '--st-sol-appreciation-share',
-            '95',
-            '--max-commission-percentage',
-            '5',
-            keypair_path=args.keypair_path,
-        )
-        print(update_result['transaction_address'])
 
     else:
         eprint("Unknown command %s" % args.command)

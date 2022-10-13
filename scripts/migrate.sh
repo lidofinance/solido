@@ -14,7 +14,7 @@ solana withdraw-from-vote-account test-ledger/vote-account-keypair.json v9zvcQby
 ./tests/deploy_test_solido.py --verbose
 
 # start maintainer
-./target/debug/solido --config ~/Documents/solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json run-maintainer --max-poll-interval-seconds 1
+./target/debug/solido --config ../solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json run-maintainer --max-poll-interval-seconds 1
 
 # deposit some SOL
 ./target/debug/solido --config ../solido_test.json deposit --amount-sol 100
@@ -25,12 +25,16 @@ solana withdraw-from-vote-account test-ledger/vote-account-keypair.json v9zvcQby
 
 # EPOCH 2
 
+# create new v2 accounts
+../solido/target/debug/solido --output json --config ../solido_test.json create-v2-accounts --developer-account-owner 2d7gxHrVHw2grzWBdRQcWS7T1r9KnaaGXZBtzPBbzHEF > v2_new_accounts.json
+jq -s '.[0] * .[1]' v2_new_accounts.json ../solido_test.json > ../temp.json
+mv ../temp.json ../solido_test.json
+# load program to a buffer account
+../solido/scripts/update_solido_version.py --config ../solido_test.json load-program --program-filepath ../solido/target/deploy/lido.so > buffer
+
 # deactivate validators
 ../solido/scripts/update_solido_version.py --config ../solido_test.json deactivate-validators --keypair-path ./tests/.keys/maintainer.json > output
 ./target/debug/solido --config ../solido_test.json --keypair-path ./tests/.keys/maintainer.json multisig approve-batch --transaction-addresses-path output
-
-# propose program upgrade
-../solido/scripts/update_solido_version.py --config ../solido_test.json load-program --program-filepath ../solido/target/deploy/lido.so |xargs -I {}  ./target/debug/solido --config ~/Documents/solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json multisig propose-upgrade --spill-address $(solana-keygen pubkey) --buffer-address {} --program-address $(cat ../solido_test.json | jq -r .solido_program_id) > ../solido/output
 
 # create a new validator with a 5% commission and propose to add it
 solana-keygen new --no-bip39-passphrase --force --silent --outfile ../solido_old/tests/.keys/vote-account-key.json
@@ -39,20 +43,19 @@ solana create-vote-account ../solido_old/tests/.keys/vote-account-key.json ../so
 
 cd ../solido
 
-# transfer SOLs for allocating space for account lists
-solana --url localhost transfer --allow-unfunded-recipient ../solido_old/tests/.keys/maintainer.json 32.0
+# EPOCH 3
+
+# propose program upgrade
+./target/debug/solido --output json --config ../solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json multisig propose-upgrade --spill-address $(solana-keygen pubkey) --buffer-address "$(< ../solido_old/buffer)" --program-address $(jq -r .solido_program_id ../solido_test.json) | jq -r .transaction_address > output
 
 # propose migration
-scripts/update_solido_version.py --config ../solido_test.json propose-migrate --keypair-path ../solido_old/tests/.keys/maintainer.json >> output
-
-# EPOCH 3
+./target/debug/solido --output json --config ../solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json migrate-state-to-v2 --developer-fee-share 1 --treasury-fee-share 4 --st-sol-appreciation-share 95 --max-commission-percentage 5 | jq -r .transaction_address >> output
 
 # wait for maintainers to remove validators, approve program update and migration
 ./target/debug/solido --config ../solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json multisig approve-batch --transaction-addresses-path output
 
 # add validator
-./target/debug/solido --config ~/Documents/solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json add-validator --validator-vote-account $(solana-keygen pubkey ../solido_old/tests/.keys/vote-account-key.json)
-echo ADD_VALIDATOR_TRANSACTION > ../solido/output
+./target/debug/solido --output json --config ../solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json add-validator --validator-vote-account $(solana-keygen pubkey ../solido_old/tests/.keys/vote-account-key.json) | jq -r .transaction_address > ../solido/output
 ./target/debug/solido --config ../solido_test.json --keypair-path ../solido_old/tests/.keys/maintainer.json multisig approve-batch --transaction-addresses-path output
 
 # EPOCH 4
