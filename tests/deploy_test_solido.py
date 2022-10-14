@@ -88,6 +88,22 @@ st_sol_mint_account = result['st_sol_mint_address']
 
 print(f'> Created instance at {solido_address}')
 
+solido_instance = solido(
+    'show-solido',
+    '--solido-program-id',
+    solido_program_id,
+    '--solido-address',
+    solido_address,
+)
+
+solana(
+    'program',
+    'set-upgrade-authority',
+    '--new-upgrade-authority',
+    solido_instance['solido']['manager'],
+    solido_program_id,
+)
+
 approve_and_execute = get_approve_and_execute(
     multisig_program_id=multisig_program_id,
     multisig_instance=multisig_instance,
