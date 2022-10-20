@@ -447,6 +447,8 @@ pub struct ShowSolidoOutput {
     pub validators: AccountList<Validator>,
 
     pub maintainers: AccountList<Maintainer>,
+
+    pub reserve_account_balance: Lamports,
 }
 
 impl fmt::Display for ShowSolidoOutput {
@@ -474,6 +476,8 @@ impl fmt::Display for ShowSolidoOutput {
             "  stSOL supply:      {}",
             self.solido.exchange_rate.st_sol_supply
         )?;
+
+        writeln!(f, "\nReserve balance: {}", self.reserve_account_balance)?;
 
         writeln!(f, "\nAuthorities (public key, bump seed):")?;
         writeln!(
@@ -678,6 +682,8 @@ pub fn command_show_solido(
     let mint_authority =
         lido.get_mint_authority(opts.solido_program_id(), opts.solido_address())?;
 
+    let reserve_account_balance = config.client.get_account(&reserve_account)?.lamports;
+
     let validators = config
         .client
         .get_account_list::<Validator>(&lido.validator_list)?;
@@ -712,6 +718,7 @@ pub fn command_show_solido(
         mint_authority,
         validators,
         maintainers,
+        reserve_account_balance: Lamports(reserve_account_balance),
     })
 }
 
@@ -1112,10 +1119,10 @@ pub struct CreateV2AccountsOutput {
 
 impl fmt::Display for CreateV2AccountsOutput {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "Solido details:")?;
+        writeln!(f, "Created new v2 accounts:")?;
         writeln!(
             f,
-            "  Validator list account:          {}",
+            "  Validator list account:   {}",
             self.validator_list_address
         )?;
         writeln!(
@@ -1123,7 +1130,11 @@ impl fmt::Display for CreateV2AccountsOutput {
             "  Maintainer list account:  {}",
             self.maintainer_list_address
         )?;
-        writeln!(f, "  Developer fee account: {}", self.developer_fee_address)?;
+        writeln!(
+            f,
+            "  Developer fee account:    {}",
+            self.developer_fee_address
+        )?;
         Ok(())
     }
 }
@@ -1133,8 +1144,8 @@ pub fn command_create_v2_accounts(
     config: &mut SnapshotConfig,
     opts: &CreateV2AccountsOpts,
 ) -> solido_cli_common::Result<CreateV2AccountsOutput> {
-    let validator_list_signer = from_key_path_or_random(opts.validator_list_key_path())?;
-    let maintainer_list_signer = from_key_path_or_random(opts.maintainer_list_key_path())?;
+    let validator_list_signer = Keypair::new();
+    let maintainer_list_signer = Keypair::new();
 
     let validator_list_size = AccountList::<Validator>::required_bytes(50_000);
     let validator_list_account_balance = config
@@ -1154,10 +1165,6 @@ pub fn command_create_v2_accounts(
         opts.st_sol_mint(),
         opts.developer_account_owner(),
     )?;
-    config
-        .sign_and_send_transaction(&instructions[..], &vec![config.signer, &developer_keypair])?;
-    instructions.clear();
-    eprintln!("Did send SPL account inits.");
 
     // Create the account that holds the validator list itself.
     instructions.push(system_instruction::create_account(
@@ -1181,8 +1188,9 @@ pub fn command_create_v2_accounts(
         &instructions[..],
         &[
             config.signer,
-            &*validator_list_signer,
-            &*maintainer_list_signer,
+            &validator_list_signer,
+            &maintainer_list_signer,
+            &developer_keypair,
         ],
     )?;
     Ok(CreateV2AccountsOutput {
