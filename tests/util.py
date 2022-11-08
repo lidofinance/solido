@@ -84,7 +84,8 @@ def solido(*args: str, keypair_path: Optional[str] = None) -> Any:
         *args,
     )
     if keypair_path is not None and keypair_path.startswith('usb://ledger'):
-        output = '\n'.join(output.split('\n')[2:])
+        # get json at the end of output
+        output = output[output.find("{") :]
     if output == '':
         return {}
     else:
@@ -277,7 +278,8 @@ def multisig(*args: str, keypair_path: Optional[str] = None) -> Any:
     # ✅ Approved
     # These lines should be ignored
     if keypair_path is not None and keypair_path.startswith('usb://ledger'):
-        output = '\n'.join(output.split('\n')[2:])
+        # get json at the end of output
+        output = output[output.find("{") :]
     if output == '':
         return {}
     else:
