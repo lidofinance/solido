@@ -590,6 +590,7 @@ fn command_deposit(
     );
 
     if !config.client.account_exists(&recipient)? {
+        #[allow(deprecated)]
         let instr = spl_associated_token_account::create_associated_token_account(
             &config.signer.pubkey(),
             &config.signer.pubkey(),
@@ -691,6 +692,7 @@ fn command_withdraw(
             &solido.st_sol_mint,
         );
         if !config.client.account_exists(&recipient)? {
+            #[allow(deprecated)]
             let instr = spl_associated_token_account::create_associated_token_account(
                 &config.signer.pubkey(),
                 &config.signer.pubkey(),

@@ -740,6 +740,7 @@ pub fn command_deposit(
         );
 
         if !config.client.account_exists(&recipient)? {
+            #[allow(deprecated)]
             let instr = spl_associated_token_account::create_associated_token_account(
                 &config.signer.pubkey(),
                 &config.signer.pubkey(),

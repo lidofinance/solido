@@ -14,8 +14,9 @@ use solana_program::system_program;
 use solana_program::{borsh::try_from_slice_unchecked, sysvar};
 use solana_program::{clock::Clock, instruction::Instruction};
 use solana_program::{instruction::InstructionError, stake_history::StakeHistory};
-use solana_program_test::{processor, ProgramTest, ProgramTestBanksClientExt, ProgramTestContext};
-use solana_sdk::account::ReadableAccount;
+use solana_program_test::{
+    processor, BanksClientError, ProgramTest, ProgramTestBanksClientExt, ProgramTestContext,
+};
 use solana_sdk::account::{from_account, Account};
 use solana_sdk::account_info::AccountInfo;
 use solana_sdk::pubkey::Pubkey;
@@ -23,7 +24,6 @@ use solana_sdk::signature::{Keypair, Signer};
 use solana_sdk::transaction::Transaction;
 use solana_sdk::transaction::TransactionError;
 use solana_sdk::transport;
-use solana_sdk::transport::TransportError;
 use solana_vote_program::vote_instruction;
 use solana_vote_program::vote_state::{VoteInit, VoteState};
 use std::sync::Once;
@@ -162,7 +162,7 @@ pub async fn send_transaction(
 
     // If the transaction failed, try to be helpful by converting the error code
     // back to a message if possible.
-    if let Err(TransportError::TransactionError(TransactionError::InstructionError(
+    if let Err(BanksClientError::TransactionError(TransactionError::InstructionError(
         _,
         InstructionError::Custom(error_code),
     ))) = result
@@ -186,7 +186,7 @@ pub async fn send_transaction(
         }
     }
 
-    result
+    result.map_err(|err| err.into())
 }
 
 /// The different ways to stake some amount from the reserve.
@@ -1170,7 +1170,7 @@ impl Context {
         .await?;
         let reserve_balance_after = self.get_sol_balance(self.reserve_address).await;
         let vote_account = self.get_account(validator_vote_account).await;
-        assert_eq!(vote_account.lamports(), vote_account_rent);
+        assert_eq!(vote_account.lamports, vote_account_rent);
 
         Ok((reserve_balance_after - reserve_balance_before)
             .expect("Reserve balance should have increased after validator fee collection."))

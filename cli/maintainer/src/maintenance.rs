@@ -1699,10 +1699,10 @@ pub fn try_perform_maintenance(
                 signers.push(keypair);
             }
 
-            let budget_instruction = ComputeBudgetInstruction::request_units(400_000, 0);
+            let unit_limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(400_000);
 
             config.sign_and_send_transaction(
-                &[budget_instruction, maintenance_instruction.instruction],
+                &[unit_limit_instruction, maintenance_instruction.instruction],
                 &signers,
             )?;
             Ok(Some(maintenance_instruction.output))

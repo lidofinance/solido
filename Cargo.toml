@@ -17,7 +17,6 @@ panic = "abort"
 [profile.release]
 panic = "abort"
 
-# patch Anchor 0.13 to be able to use Solana 1.9.28
 [patch.crates-io]
 anchor-lang = { git = "https://github.com/lidofinance/anchor", branch = "solana-v1.9.28" }
 

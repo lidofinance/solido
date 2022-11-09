@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main, current ]
+    branches: [ main, v1_ledger_nano_s_plus ]
   pull_request:
     branches: '*'
 
@@ -59,14 +59,14 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: build-1.9.28-v1-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
-        restore-keys: build-1.9.28-v1
+        key: build-1.13.4-v1-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+        restore-keys: build-1.13.4-v1
 
     - name: Install development tools
       run: |
         sudo apt update
         sudo apt-get install -y libudev-dev
-        sh -c "$(curl -sSfL https://release.solana.com/v1.9.28/install)"
+        sh -c "$(curl -sSfL https://release.solana.com/v1.13.4/install)"
 
     - name: Run unit tests
       run: |
@@ -157,8 +157,8 @@ jobs:
           ~/.cargo/git/db/
           target/
           cli/listener/fuzz/target/
-        key: lint-1.9.28-v1-${{ hashFiles('Cargo.lock', 'cli/listener/fuzz/Cargo.lock', 'rust-toolchain.toml') }}
-        restore-keys: lint-1.9.28-v1
+        key: lint-1.13.4-v1-${{ hashFiles('Cargo.lock', 'cli/listener/fuzz/Cargo.lock', 'rust-toolchain.toml') }}
+        restore-keys: lint-1.13.4-v1
 
     - name: Install linters
       run: |

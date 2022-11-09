@@ -108,7 +108,7 @@ async fn test_remove_validator_with_unclaimed_credits() {
     let vote_account = solido.validators.entries[0].pubkey;
     assert_eq!(
         solido.validators.entries[0].entry.fee_credit,
-        StLamports(998_758_598)
+        StLamports(998_758_607)
     );
 
     context.deactivate_validator(vote_account).await;

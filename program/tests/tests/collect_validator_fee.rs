@@ -78,7 +78,7 @@ async fn test_collect_validator_fee() {
     // configuration yields, so we have to deal with it.
     context.update_exchange_rate().await;
     let rewards = context.collect_validator_fee(validator.vote_account).await;
-    assert_eq!(rewards, Lamports(19_975_171_979));
+    assert_eq!(rewards, Lamports(19_975_172_144));
     let treasury_after = context
         .get_st_sol_balance(context.treasury_st_sol_account)
         .await;
@@ -95,7 +95,7 @@ async fn test_collect_validator_fee() {
         .exchange_rate
         .exchange_st_sol(treasury_fee)
         .unwrap();
-    assert_eq!(treasury_fee_sol, Lamports(rewards.0 / 100 * 3 + 2));
+    assert_eq!(treasury_fee_sol, Lamports(rewards.0 / 100 * 3 + 1));
 
     // The developer balance increase, when converted back to SOL, should be equal
     // to 2% of the rewards. One lamport differs due to rounding errors.
@@ -104,7 +104,7 @@ async fn test_collect_validator_fee() {
         .exchange_rate
         .exchange_st_sol(developer_fee)
         .unwrap();
-    assert_eq!(developer_fee_sol, Lamports(rewards.0 / 100 * 2 + 1));
+    assert_eq!(developer_fee_sol, Lamports(rewards.0 / 100 * 2));
 
     // The validator balance increase, when converted back to SOL, should be equal
     // to 5% of the rewards.
@@ -115,7 +115,7 @@ async fn test_collect_validator_fee() {
         .unwrap();
 
     // Three lamports differ due to rounding errors.
-    assert_eq!(validator_fee_sol, Lamports(rewards.0 / 100 * 5 + 3));
+    assert_eq!(validator_fee_sol, Lamports(rewards.0 / 100 * 5 + 2));
 
     // Claim validator fee
     let claimed_fee = context.claim_validator_fee(validator.vote_account).await;
