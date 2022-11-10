@@ -23,6 +23,7 @@ from util import (
     multisig,
     get_approve_and_execute,
     get_solido_program_path,
+    TestAccount,
 )
 
 print('\nUploading Solido program ...')
@@ -37,6 +38,10 @@ print(f'> Multisig program id is {multisig_program_id}')
 
 os.makedirs('tests/.keys', exist_ok=True)
 maintainer = create_test_account('tests/.keys/maintainer.json')
+multisig_signer = maintainer
+# multisig_signer = TestAccount(
+#     pubkey="6eEBz6kvL2WgWR5YAvpDV6aVaBQWZFRyzCC8Fuf7tkh7", keypair_path="usb://ledger"
+# )
 st_sol_accounts_owner = create_test_account('tests/.keys/st-sol-accounts-owner.json')
 
 print('\nCreating new multisig ...')
@@ -47,7 +52,7 @@ multisig_data = multisig(
     '--threshold',
     '1',
     '--owners',
-    maintainer.pubkey,
+    multisig_signer.pubkey,
 )
 multisig_instance = multisig_data['multisig_address']
 multisig_pda = multisig_data['multisig_program_derived_address']
@@ -78,7 +83,7 @@ result = solido(
     st_sol_accounts_owner.pubkey,
     '--multisig-address',
     multisig_instance,
-    keypair_path=maintainer.keypair_path,
+    keypair_path=multisig_signer.keypair_path,
 )
 
 solido_address = result['solido_address']
@@ -107,7 +112,7 @@ solana(
 approve_and_execute = get_approve_and_execute(
     multisig_program_id=multisig_program_id,
     multisig_instance=multisig_instance,
-    signer_keypair_paths=[maintainer.keypair_path],
+    signer_keypair_paths=[multisig_signer.keypair_path],
 )
 
 
@@ -161,7 +166,7 @@ def add_validator(index: int, vote_account: Optional[str]) -> str:
         validator_fee_st_sol_account,
         '--multisig-address',
         multisig_instance,
-        keypair_path=maintainer.keypair_path,
+        keypair_path=multisig_signer.keypair_path,
     )
     approve_and_execute(transaction_result['transaction_address'])
     return vote_account
@@ -237,10 +242,10 @@ validators = [
 # Create two validators of our own, so we have a more interesting stake
 # distribution. These validators are not running, so they will not earn
 # rewards.
-# validators.extend(
-#     add_validator(i, vote_account=None)
-#     for i in range(len(validators), len(validators) + 2)
-# )
+validators.extend(
+    add_validator(i, vote_account=None)
+    for i in range(len(validators), len(validators) + 1)
+)
 
 
 print('Adding maintainer ...')
@@ -256,7 +261,7 @@ transaction_result = solido(
     maintainer.pubkey,
     '--multisig-address',
     multisig_instance,
-    keypair_path=maintainer.keypair_path,
+    keypair_path=multisig_signer.keypair_path,
 )
 approve_and_execute(transaction_result['transaction_address'])
 
@@ -287,7 +292,7 @@ print(
         [
             'solido',
             '--keypair-path',
-            maintainer.keypair_path,
+            multisig_signer.keypair_path,
             '--cluster',
             get_network(),
             'run-maintainer',
