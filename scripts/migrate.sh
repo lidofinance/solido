@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export MULTISIG_KEYPAIR_PATH="usb://ledger"
+
 ###############################################################################
 #                                   EPOCH 0                                   #
 ###############################################################################
@@ -12,7 +14,7 @@ rm -rf tests/.keys/ test-ledger/ tests/__pycache__/ && \
 
 # withdraw SOLs from local validator vote account to start fresh
 solana withdraw-from-vote-account test-ledger/vote-account-keypair.json \
-       $(solana-keygen pubkey) \
+       $(solana-keygen pubkey $MULTISIG_KEYPAIR_PATH) \
        999999.9 --authorized-withdrawer test-ledger/vote-account-keypair.json
 
 # create instance
@@ -53,15 +55,15 @@ mv ../temp.json ../solido_test.json
 # deactivate validators
 ../solido/scripts/operation.py \
     --config ../solido_test.json \
-    deactivate-validators --keypair-path ./tests/.keys/maintainer.json --outfile output
+    deactivate-validators --keypair-path $MULTISIG_KEYPAIR_PATH --outfile output
 # batch sign transactions
 ./target/debug/solido --config ../solido_test.json \
-                      --keypair-path ../solido_old/tests/.keys/maintainer.json \
+                      --keypair-path $MULTISIG_KEYPAIR_PATH \
                       multisig approve-batch --silent --transaction-addresses-path output
 # execute transactions one by one
 ../solido/scripts/operation.py \
     --config ../solido_test.json \
-    execute-transactions --transactions output --keypair-path ./tests/.keys/maintainer.json
+    execute-transactions --transactions output --keypair-path $MULTISIG_KEYPAIR_PATH
 
 # create a new validator keys with a 5% commission
 solana-keygen new --no-bip39-passphrase --force --silent \
@@ -82,25 +84,25 @@ cd ../solido
 
 # propose program upgrade
 ./target/debug/solido --output json --config ../solido_test.json \
-                      --keypair-path ../solido_old/tests/.keys/maintainer.json \
+                      --keypair-path $MULTISIG_KEYPAIR_PATH \
                       multisig propose-upgrade \
                       --spill-address $(solana-keygen pubkey) \
                       --buffer-address "$(< ../solido_old/buffer)" \
-                      --program-address $(jq -r .solido_program_id ../solido_test.json) \
-    | jq -r .transaction_address > output
+                      --program-address $(jq -r .solido_program_id ../solido_test.json) > temp
+awk '/{/,/}/' temp | jq -r .transaction_address >> output
 
 # propose migration
 ./target/debug/solido --output json --config ../solido_test.json \
-                      --keypair-path ../solido_old/tests/.keys/maintainer.json\
+                      --keypair-path $MULTISIG_KEYPAIR_PATH\
                       migrate-state-to-v2 --developer-fee-share 1 \
                       --treasury-fee-share 4 \
                       --st-sol-appreciation-share 95 \
-                      --max-commission-percentage 5 \
-    | jq -r .transaction_address >> output
+                      --max-commission-percentage 5 > temp
+awk '/{/,/}/' temp | jq -r .transaction_address >> output
 
 # wait for maintainers to remove validators, approve program update and migration
 ./target/debug/solido --config ../solido_test.json \
-                      --keypair-path ../solido_old/tests/.keys/maintainer.json \
+                      --keypair-path $MULTISIG_KEYPAIR_PATH \
                       multisig approve-batch --transaction-addresses-path output
 
 # start a new maintainer
@@ -115,15 +117,15 @@ solana-keygen pubkey ../solido_old/tests/.keys/vote-account-key.json > validator
     --config ../solido_test.json \
     add-validators --outfile output \
     --vote-accounts validators.txt \
-    --keypair-path ../solido_old/tests/.keys/maintainer.json
+    --keypair-path $MULTISIG_KEYPAIR_PATH
 # batch sign transactions
 ./target/debug/solido --config ../solido_test.json \
-                      --keypair-path ../solido_old/tests/.keys/maintainer.json \
+                      --keypair-path $MULTISIG_KEYPAIR_PATH \
                       multisig approve-batch --silent --transaction-addresses-path output
 # execute transactions one by one
 ../solido/scripts/operation.py \
     --config ../solido_test.json \
-    execute-transactions --transactions output --keypair-path ../solido_old/tests/.keys/maintainer.json
+    execute-transactions --transactions output --keypair-path $MULTISIG_KEYPAIR_PATH
 
 ###############################################################################
 #                                   EPOCH 4                                   #
