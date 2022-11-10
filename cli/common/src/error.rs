@@ -489,6 +489,9 @@ impl AsPrettyError for SignerError {
                 print_key("Message: ");
                 println!(" {}", message);
             }
+            SignerError::TooManySigners => {
+                println!("Too many signers.");
+            }
         }
     }
 }

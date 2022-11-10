@@ -117,7 +117,7 @@ async fn test_update_stake_account_balance() {
     // number looks arbitrary, but this is the amount that the current reward
     // configuration yields, so we have to deal with it.
     context.update_exchange_rate().await;
-    let arbitrary_rewards: u64 = 18_976_413_379;
+    let arbitrary_rewards: u64 = 18_976_413_535;
     context
         .update_stake_account_balance(validator.vote_account)
         .await;

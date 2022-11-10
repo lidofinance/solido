@@ -284,6 +284,7 @@ impl<'a> Snapshot<'a> {
                         commitment: Some(CommitmentConfig {
                             commitment: CommitmentLevel::Confirmed,
                         }),
+                        max_supported_transaction_version: None,
                     };
 
                     let block = self
