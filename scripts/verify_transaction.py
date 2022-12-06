@@ -16,12 +16,11 @@ from util import solido, solana, run  # type: ignore
 Sample: Dict[str, Any] = {
     'solido_instance': '49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
     'program_to_upgrade': 'CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi',  # solido_config.json : solido_program_id
-    'program_data_address': 'HZe59cxGy7irFUtcmcUwkmvERrwyCUKaJQavwt7VrVTg',
     'manager': 'GQ3QPrB1RHPRr4Reen772WrMZkHcFM4DL5q44x1BBTFm', #manager
-    'buffer_address': '2LCfqfcQBjKEpvyA54vwAGaYTUXt1L13MwEsDbrzuJbw',  # buffer adres account
-    'validator_list': 'HDLRixNLF3PLBMfxhKgKxeZEDhA84RiRUSZFm2zwimeE',
-    'maintainer_list': '2uLFh1Ec8NP1fftKD2MLnF12Kw4CTXNHhDtqsWVz7f9K',
-    'developer_account': '5vgbVafXQiVb9ftDix1NadV7D6pgP5H9YPCaoKcPrBxZ',
+    'buffer_address': '46Kdub5aehm8RpFtSvnaTWxYR2WMCgAkma7fj61vaRiT',  # buffer adres account
+    'validator_list': 'GL9kqRNUTUosW3RsDoXHCuXUZn73SgQQmBvtp1ng2co4',
+    'maintainer_list': '5dvtr16i34hwXuCtTNHXXJ5ojeidVPXbceN9pXxrE8bn',
+    'developer_account': '5Y5LVTXbtMYsibjp9uQMmCyZbtSru8zktuxGPV9eHu3m',
     'reward_distribution': {
         'treasury_fee': 4,
         'developer_fee': 1,
@@ -226,7 +225,6 @@ def verify_transaction_data(json_data: Any) -> bool:
         output_buf += ValidateSolidoState("Upgrade program")
         l2_data = l1_keys['BpfLoaderUpgrade']
         output_buf += ValidateField(l2_data, 'program_to_upgrade')
-        output_buf += ValidateField(l2_data, 'program_data_address')
         output_buf += ValidateField(l2_data, 'buffer_address')
     else:
         output_buf += "Unknown instruction\n"
