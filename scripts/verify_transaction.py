@@ -14,8 +14,8 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 from util import solido, solana, run  # type: ignore
 
 Sample: Dict[str, Any] = {
-    'solido_instance': '2i2crMWRb9nUY6HpDDp3R1XAXXB9UNdWAdtD9Kp9eUNT',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
-    'program_to_upgrade': '2QYdJZhBrg5wAvkVA98WM2JtTXngsTpBXSq2LXnVUa33',  # solido_config.json : solido_program_id
+    'solido_instance': '49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
+    'program_to_upgrade': 'CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi',  # solido_config.json : solido_program_id
     'program_data_address': 'HZe59cxGy7irFUtcmcUwkmvERrwyCUKaJQavwt7VrVTg',
     'buffer_address': '2LCfqfcQBjKEpvyA54vwAGaYTUXt1L13MwEsDbrzuJbw',  # buffer adres account
     'validator_list': 'HDLRixNLF3PLBMfxhKgKxeZEDhA84RiRUSZFm2zwimeE',
