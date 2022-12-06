@@ -17,6 +17,7 @@ Sample: Dict[str, Any] = {
     'solido_instance': '49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
     'program_to_upgrade': 'CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi',  # solido_config.json : solido_program_id
     'program_data_address': 'HZe59cxGy7irFUtcmcUwkmvERrwyCUKaJQavwt7VrVTg',
+    'manager': 'GQ3QPrB1RHPRr4Reen772WrMZkHcFM4DL5q44x1BBTFm', #manager
     'buffer_address': '2LCfqfcQBjKEpvyA54vwAGaYTUXt1L13MwEsDbrzuJbw',  # buffer adres account
     'validator_list': 'HDLRixNLF3PLBMfxhKgKxeZEDhA84RiRUSZFm2zwimeE',
     'maintainer_list': '2uLFh1Ec8NP1fftKD2MLnF12Kw4CTXNHhDtqsWVz7f9K',
