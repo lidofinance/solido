@@ -17,7 +17,7 @@ from install_solido import install_solido
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
-from tests.util import solido, solana, run  # type: ignore
+from util import solido, solana, run  # type: ignore
 
 
 def set_solido_cli_path(strData):

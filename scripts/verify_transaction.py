@@ -11,7 +11,7 @@ from typing import Any, Dict, Set, List
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
-from tests.util import solido, solana, run  # type: ignore
+from util import solido, solana, run  # type: ignore
 
 Sample: Dict[str, Any] = {
     'solido_instance': '2i2crMWRb9nUY6HpDDp3R1XAXXB9UNdWAdtD9Kp9eUNT',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
