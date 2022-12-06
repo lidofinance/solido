@@ -16,7 +16,7 @@ from util import solido, solana, run  # type: ignore
 Sample: Dict[str, Any] = {
     'solido_instance': '49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
     'program_to_upgrade': 'CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi',  # solido_config.json : solido_program_id
-    'manager': 'GQ3QPrB1RHPRr4Reen772WrMZkHcFM4DL5q44x1BBTFm', #manager
+    'manager': 'GQ3QPrB1RHPRr4Reen772WrMZkHcFM4DL5q44x1BBTFm', # manager
     'buffer_address': '46Kdub5aehm8RpFtSvnaTWxYR2WMCgAkma7fj61vaRiT',  # buffer adres account
     'validator_list': 'GL9kqRNUTUosW3RsDoXHCuXUZn73SgQQmBvtp1ng2co4',
     'maintainer_list': '5dvtr16i34hwXuCtTNHXXJ5ojeidVPXbceN9pXxrE8bn',
