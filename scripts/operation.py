@@ -4,7 +4,6 @@
 This script has multiple options to to interact with Solido
 """
 
-
 import argparse
 import json
 import sys
@@ -13,12 +12,7 @@ from typing import Any, Optional
 import verify_transaction
 from install_solido import install_solido
 
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(SCRIPT_DIR))
-
 from util import solido, solana, run  # type: ignore
-
 
 def set_solido_cli_path(strData):
     if os.path.isfile(strData):

@@ -7,10 +7,6 @@ This script has multiple options to to interact with Solido
 import sys
 import os.path
 from typing import Any, Dict, Set, List
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(SCRIPT_DIR))
-
 from util import solido, solana, run  # type: ignore
 
 Sample: Dict[str, Any] = {
