@@ -31,7 +31,28 @@ Sample: Dict[str, Any] = {
 ValidatorVoteAccSet = set()
 VerificationStatus = True
 ValidatorSetV1 = set()
-ValidatorSetV2: Set[str] = set()  # will be filled later
+ValidatorSetV2: Set[str] = { # set() Filled with updated vote accounts
+    "9GJmEHGom9eWo4np4L5vC6b6ri1Df2xN8KFoWixvD1Bs",
+    "DdCNGDpP7qMgoAy6paFzhhak2EeyCZcgjH7ak5u5v28m",
+    "2NxEEbhqqj1Qptq5LXLbDTP5tLa9f7PqkU8zNgxbGU9P",
+    "4PsiLMyoUQ7QRn1FFiFCvej4hsUTFzfvJnyN4bj1tmSN",
+    "8jxSHbS4qAnh5yueFp4D9ABXubKqMwXqF3HtdzQGuphp",
+    "BxFf75Vtzro2Hy3coFHKxFMZo5au8W7J8BmLC3gCMotU",
+    "2vZd7mdsiDiXvGUq1ASNfkYYjMJ83yYXKHA3zfmKHc4g",
+    "FCvNkHa4U3yh7AXWGGL2jWLWiSRouR8EtzY5WVTHKTHa",
+    "7DrGM5rSgw8iCnXNxgjfmy4GFy6PuKu3gsujT5TjcDaA",
+    "4MpRU9fDDSQNNTeb4v5DPZZTKupYancGksH679AKLBnt",
+    "G11K4toVD1rk4ri7eziJyYENZTXb8h7q59gzaoE3BCHX",
+    "BH7asDZbKkTmT3UWiNfmMVRgQEEpXoVThGPmQfgWwDhg",
+    "7PmWxxiTneGteGxEYvzj5pGDVMQ4nuN9DfUypEXmaA8o",
+    "EogKVYgic8LKAuV1kR9nRqJaS5zpwCvSMfqoehzmAMpK",
+    "6F5xdRXh2W3B2vhte12VG79JVUkUSLYrHydGX1SAadfZ",
+    "81LF3sFyx9aANNhZPTyPEULKHV1mTqd3qho7ZLQghNJL",
+    "9J7Hvujf8LZiKBaXGmA1XwYszfVenieTdta1imwoC3QD",
+    "Fw34MoMfRrAUPePPbfKAH9eQDizYodVXWV4fXSdjJwMa",
+    "C5Tof5G3wNY1qg2z9HMfVrpQmvjUiaGj5SuYTYWeWWsm",
+    "SFund7s2YPS7iCu7W2TobbuQEpVEAv9ZU7zHKiN1Gow"
+}
 SolidoVersion = -1
 SolidoState = "Unknown state"
 TransOrder: List[str] = list()
