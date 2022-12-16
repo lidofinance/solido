@@ -40,8 +40,8 @@ use solido_cli_common::{
 
 use crate::config::{
     ApproveBatchOpts, ApproveOpts, ConfigFile, CreateMultisigOpts, ExecuteTransactionOpts,
-    ProposeChangeMultisigOpts, ProposeUpgradeOpts, ShowMultisigOpts, ShowTransactionOpts,
-    TransferTokenOpts,
+    ProposeChangeMultisigOpts, ProposeOwnerMultisigOpts, ProposeUpgradeOpts, ShowMultisigOpts,
+    ShowTransactionOpts, TransferTokenOpts,
 };
 use crate::print_output;
 
@@ -67,6 +67,12 @@ impl MultisigOpts {
             }
             SubCommand::ProposeUpgrade(opts) => opts.merge_with_config_and_environment(config_file),
             SubCommand::ProposeChangeMultisig(opts) => {
+                opts.merge_with_config_and_environment(config_file)
+            }
+            SubCommand::ProposeAddOwner(opts) => {
+                opts.merge_with_config_and_environment(config_file)
+            }
+            SubCommand::ProposeRevokeOwner(opts) => {
                 opts.merge_with_config_and_environment(config_file)
             }
             SubCommand::Approve(opts) => opts.merge_with_config_and_environment(config_file),
@@ -95,6 +101,12 @@ enum SubCommand {
 
     /// Propose replacing the set of owners or threshold of this multisig.
     ProposeChangeMultisig(ProposeChangeMultisigOpts),
+
+    /// Propose adding a new owner to the set of owners of this multisig.
+    ProposeAddOwner(ProposeOwnerMultisigOpts),
+
+    /// Propose revoking an owner from the set of owners of this multisig.
+    ProposeRevokeOwner(ProposeOwnerMultisigOpts),
 
     /// Approve a proposed transaction.
     Approve(ApproveOpts),
@@ -142,6 +154,16 @@ pub fn main(config: &mut SnapshotClientConfig, multisig_opts: MultisigOpts) {
         SubCommand::ProposeChangeMultisig(cmd_opts) => {
             let result = config.with_snapshot(|config| propose_change_multisig(config, &cmd_opts));
             let output = result.ok_or_abort_with("Failed to propose multisig change.");
+            print_output(output_mode, &output);
+        }
+        SubCommand::ProposeAddOwner(cmd_opts) => {
+            let result = config.with_snapshot(|config| propose_add_owner(config, &cmd_opts));
+            let output = result.ok_or_abort_with("Failed to propose addition.");
+            print_output(output_mode, &output);
+        }
+        SubCommand::ProposeRevokeOwner(cmd_opts) => {
+            let result = config.with_snapshot(|config| propose_revoke_owner(config, &cmd_opts));
+            let output = result.ok_or_abort_with("Failed to propose revocation.");
             print_output(output_mode, &output);
         }
         SubCommand::Approve(cmd_opts) => {
@@ -1239,6 +1261,90 @@ fn propose_change_multisig(
     let change_data = multisig_instruction::SetOwnersAndChangeThreshold {
         owners: opts.owners().clone().0,
         threshold: *opts.threshold(),
+    };
+    let change_addrs = multisig_accounts::Auth {
+        multisig: *opts.multisig_address(),
+        multisig_signer: program_derived_address,
+    };
+
+    let override_is_signer = None;
+    let change_instruction = Instruction {
+        program_id: *opts.multisig_program_id(),
+        data: change_data.data(),
+        accounts: change_addrs.to_account_metas(override_is_signer),
+    };
+
+    propose_instruction(
+        config,
+        opts.multisig_program_id(),
+        *opts.multisig_address(),
+        change_instruction,
+    )
+}
+
+fn propose_revoke_owner(
+    config: &mut SnapshotConfig,
+    opts: &ProposeOwnerMultisigOpts,
+) -> Result<ProposeInstructionOutput> {
+    let multisig: serum_multisig::Multisig = config
+        .client
+        .get_account_deserialize(opts.multisig_address())?;
+
+    let (program_derived_address, _nonce) =
+        get_multisig_program_address(opts.multisig_program_id(), opts.multisig_address());
+
+    let new_owners: Vec<_> = multisig
+        .owners
+        .iter()
+        .filter(|&owner| owner != opts.owner())
+        .cloned()
+        .collect();
+
+    let change_data = multisig_instruction::SetOwnersAndChangeThreshold {
+        owners: new_owners,
+        threshold: multisig.threshold,
+    };
+    let change_addrs = multisig_accounts::Auth {
+        multisig: *opts.multisig_address(),
+        multisig_signer: program_derived_address,
+    };
+
+    let override_is_signer = None;
+    let change_instruction = Instruction {
+        program_id: *opts.multisig_program_id(),
+        data: change_data.data(),
+        accounts: change_addrs.to_account_metas(override_is_signer),
+    };
+
+    propose_instruction(
+        config,
+        opts.multisig_program_id(),
+        *opts.multisig_address(),
+        change_instruction,
+    )
+}
+
+fn propose_add_owner(
+    config: &mut SnapshotConfig,
+    opts: &ProposeOwnerMultisigOpts,
+) -> Result<ProposeInstructionOutput> {
+    let multisig: serum_multisig::Multisig = config
+        .client
+        .get_account_deserialize(opts.multisig_address())?;
+
+    let (program_derived_address, _nonce) =
+        get_multisig_program_address(opts.multisig_program_id(), opts.multisig_address());
+
+    let new_owners: Vec<_> = multisig
+        .owners
+        .iter()
+        .chain(std::iter::once(opts.owner()))
+        .cloned()
+        .collect();
+
+    let change_data = multisig_instruction::SetOwnersAndChangeThreshold {
+        owners: new_owners,
+        threshold: multisig.threshold,
     };
     let change_addrs = multisig_accounts::Auth {
         multisig: *opts.multisig_address(),

@@ -555,7 +555,7 @@ ProposeUpgradeOpts {
 }
 
 cli_opt_struct! {
-ShowMultisigOpts {
+    ShowMultisigOpts {
         /// The multisig account to display.
         #[clap(long, value_name = "address")]
         multisig_address: Pubkey,
@@ -655,6 +655,22 @@ cli_opt_struct! {
         /// The public keys of the multisig owners, who can sign transactions.
         #[clap(long)]
         owners: PubkeyVec,
+
+        /// Address of the Multisig program.
+        #[clap(long)]
+        multisig_program_id: Pubkey,
+    }
+}
+
+cli_opt_struct! {
+    ProposeOwnerMultisigOpts {
+        /// The multisig account to modify.
+        #[clap(long)]
+        multisig_address: Pubkey,
+
+        /// The public key of the new multisig owner to add or remove to this multisig address.
+        #[clap(long)]
+        owner: Pubkey,
 
         /// Address of the Multisig program.
         #[clap(long)]
