@@ -31,6 +31,7 @@ from util import (
     solana_program_show,
     multisig,
     get_solido_program_path,
+    get_path_to_default_account,
     spl_token,
 )
 
@@ -513,6 +514,8 @@ spl_token(
     'create-account',
     test_token.pubkey,
     test_token_account_1.keypair_path,
+    '--fee-payer',
+    get_path_to_default_account(),
     '--owner',
     multisig_program_derived_address,
 )
@@ -521,7 +524,7 @@ print(f'\nTesting transferring token from mint {test_token} ...')
 spl_token('create-account', test_token.pubkey, test_token_account_2.keypair_path)
 spl_token('mint', test_token.pubkey, '100', test_token_account_1.pubkey)
 print(
-    f'> Testing transfering 10 tokens from {test_token_account_1} to {test_token_account_2}.'
+    f'> Testing transferring 10 tokens from {test_token_account_1} to {test_token_account_2}.'
 )
 result = multisig(
     'token-transfer',

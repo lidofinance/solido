@@ -180,6 +180,13 @@ def solana_program_show(program_id: str) -> SolanaProgramInfo:
     )
 
 
+def get_path_to_default_account() -> str:
+    """
+    Return the default public key from any available account.
+    """
+    return os.path.expanduser(os.getenv('SOLANA_DEFAULT_KEYPAIR', '~/.config/solana/id.json'))
+
+
 def create_test_account(keypair_fname: str, *, fund: bool = True) -> TestAccount:
     """
     Generate a key pair, fund the account with 1 SOL, and return its public key.
