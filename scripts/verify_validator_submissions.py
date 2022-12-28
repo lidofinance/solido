@@ -58,6 +58,7 @@ def iter_validator_infos() -> Iterable[ValidatorInfo]:
     Return the validator info for all validators on mainnet.
     """
     for info in solana('validator-info', 'get', '--output', 'json'):
+        print(info)
         yield ValidatorInfo(
             identity_address=info['identityPubkey'],
             info_address=info['infoPubkey'],
@@ -136,6 +137,7 @@ class VoteAccount(NamedTuple):
 
 def get_vote_account(self: ValidatorResponse) -> Optional[VoteAccount]:
     try:
+        print(self.vote_account_address)
         result = solana('vote-account', '--output', 'json', self.vote_account_address)
         return VoteAccount(
             validator_identity_address=result['validatorIdentity'],
@@ -183,6 +185,7 @@ def check_validator_response(
         )
 
     validator_info = validators_by_identity.get(vote_account.validator_identity_address)
+    print(vote_account.validator_identity_address)
     if validator_info is None:
         print_error('Validator identity does not exist.')
         return
@@ -193,16 +196,15 @@ def check_validator_response(
         print_ok('Keybase username in form matches username in identity account.')
     else:
         print_error('Keybase username in identity account does not match the form.')
-
-    if validator_info.name is not None and validator_info.name.startswith('Lido / '):
-        print_ok('Validator identity name starts with "Lido / ".')
-    else:
-        print_error('Validator identity name does not start with "Lido / ".')
+        print(validator_info.keybase_username)
+        print(self.keybase_username)
 
     if validator_info.name == self.identity_name:
         print_ok('Name in identity account matches name in form.')
     else:
         print_error('Name in identity account does not mach name in form.')
+        print(validator_info.name)
+        print(self.identity_name)
 
     if check_keybase_has_identity_address(
         self.keybase_username, vote_account.validator_identity_address
@@ -235,6 +237,7 @@ def check_validator_response(
 
 def main() -> None:
     # Build a map of validators by identity address.
+    print("Build a map of validators by identity address")
     validators_by_identity: Dict[str, ValidatorInfo] = {
         info.identity_address: info for info in iter_validator_infos()
     }
@@ -247,6 +250,7 @@ def main() -> None:
     identity_accounts: Dict[str, str] = {}
     st_sol_accounts: Dict[str, str] = {}
 
+    print("Start verification")
     for response in iter_rows_from_stdin():
         check_validator_response(
             response,
