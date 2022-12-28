@@ -7,20 +7,16 @@ This script has multiple options to to interact with Solido
 import sys
 import os.path
 from typing import Any, Dict, Set, List
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(SCRIPT_DIR))
-
-from tests.util import solido, solana, run  # type: ignore
+from util import solido, solana, run  # type: ignore
 
 Sample: Dict[str, Any] = {
-    'solido_instance': '2i2crMWRb9nUY6HpDDp3R1XAXXB9UNdWAdtD9Kp9eUNT',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
-    'program_to_upgrade': '2QYdJZhBrg5wAvkVA98WM2JtTXngsTpBXSq2LXnVUa33',  # solido_config.json : solido_program_id
-    'program_data_address': 'HZe59cxGy7irFUtcmcUwkmvERrwyCUKaJQavwt7VrVTg',
-    'buffer_address': '2LCfqfcQBjKEpvyA54vwAGaYTUXt1L13MwEsDbrzuJbw',  # buffer adres account
-    'validator_list': 'HDLRixNLF3PLBMfxhKgKxeZEDhA84RiRUSZFm2zwimeE',
-    'maintainer_list': '2uLFh1Ec8NP1fftKD2MLnF12Kw4CTXNHhDtqsWVz7f9K',
-    'developer_account': '5vgbVafXQiVb9ftDix1NadV7D6pgP5H9YPCaoKcPrBxZ',
+    'solido_instance': '49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
+    'program_to_upgrade': 'CrX7kMhLC3cSsXJdT7JDgqrRVWGnUpX3gfEfxxU2NVLi',  # solido_config.json : solido_program_id
+    'manager': 'GQ3QPrB1RHPRr4Reen772WrMZkHcFM4DL5q44x1BBTFm', # manager
+    'buffer_address': '46Kdub5aehm8RpFtSvnaTWxYR2WMCgAkma7fj61vaRiT',  # buffer adres account
+    'validator_list': 'GL9kqRNUTUosW3RsDoXHCuXUZn73SgQQmBvtp1ng2co4',
+    'maintainer_list': '5dvtr16i34hwXuCtTNHXXJ5ojeidVPXbceN9pXxrE8bn',
+    'developer_account': '5Y5LVTXbtMYsibjp9uQMmCyZbtSru8zktuxGPV9eHu3m',
     'reward_distribution': {
         'treasury_fee': 4,
         'developer_fee': 1,
@@ -35,7 +31,28 @@ Sample: Dict[str, Any] = {
 ValidatorVoteAccSet = set()
 VerificationStatus = True
 ValidatorSetV1 = set()
-ValidatorSetV2: Set[str] = set()  # will be filled later
+ValidatorSetV2: Set[str] = { # set() Filled with updated vote accounts
+    "9GJmEHGom9eWo4np4L5vC6b6ri1Df2xN8KFoWixvD1Bs",
+    "DdCNGDpP7qMgoAy6paFzhhak2EeyCZcgjH7ak5u5v28m",
+    "2NxEEbhqqj1Qptq5LXLbDTP5tLa9f7PqkU8zNgxbGU9P",
+    "4PsiLMyoUQ7QRn1FFiFCvej4hsUTFzfvJnyN4bj1tmSN",
+    "8jxSHbS4qAnh5yueFp4D9ABXubKqMwXqF3HtdzQGuphp",
+    "BxFf75Vtzro2Hy3coFHKxFMZo5au8W7J8BmLC3gCMotU",
+    "2vZd7mdsiDiXvGUq1ASNfkYYjMJ83yYXKHA3zfmKHc4g",
+    "FCvNkHa4U3yh7AXWGGL2jWLWiSRouR8EtzY5WVTHKTHa",
+    "7DrGM5rSgw8iCnXNxgjfmy4GFy6PuKu3gsujT5TjcDaA",
+    "4MpRU9fDDSQNNTeb4v5DPZZTKupYancGksH679AKLBnt",
+    "G11K4toVD1rk4ri7eziJyYENZTXb8h7q59gzaoE3BCHX",
+    "BH7asDZbKkTmT3UWiNfmMVRgQEEpXoVThGPmQfgWwDhg",
+    "7PmWxxiTneGteGxEYvzj5pGDVMQ4nuN9DfUypEXmaA8o",
+    "EogKVYgic8LKAuV1kR9nRqJaS5zpwCvSMfqoehzmAMpK",
+    "6F5xdRXh2W3B2vhte12VG79JVUkUSLYrHydGX1SAadfZ",
+    "81LF3sFyx9aANNhZPTyPEULKHV1mTqd3qho7ZLQghNJL",
+    "9J7Hvujf8LZiKBaXGmA1XwYszfVenieTdta1imwoC3QD",
+    "Fw34MoMfRrAUPePPbfKAH9eQDizYodVXWV4fXSdjJwMa",
+    "C5Tof5G3wNY1qg2z9HMfVrpQmvjUiaGj5SuYTYWeWWsm",
+    "SFund7s2YPS7iCu7W2TobbuQEpVEAv9ZU7zHKiN1Gow"
+}
 SolidoVersion = -1
 SolidoState = "Unknown state"
 TransOrder: List[str] = list()
@@ -225,7 +242,6 @@ def verify_transaction_data(json_data: Any) -> bool:
         output_buf += ValidateSolidoState("Upgrade program")
         l2_data = l1_keys['BpfLoaderUpgrade']
         output_buf += ValidateField(l2_data, 'program_to_upgrade')
-        output_buf += ValidateField(l2_data, 'program_data_address')
         output_buf += ValidateField(l2_data, 'buffer_address')
     else:
         output_buf += "Unknown instruction\n"

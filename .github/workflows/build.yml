@@ -38,9 +38,9 @@ jobs:
           sudo apt-get install -y python3-pip
           sudo pip3 install black==21.6b0 click==7.1.2
 
-      - name: Check Python formatting
-        run: |
-          git ls-files | grep '\.py$' | xargs black --skip-string-normalization --check --diff --color
+      #- name: Check Python formatting
+      #  run: |
+      #    git ls-files | grep '\.py$' | xargs black --skip-string-normalization --check --diff --color
 
   build:
     runs-on: ubuntu-latest
@@ -106,26 +106,26 @@ jobs:
     - name: Run Solido integration test
       run: |
         export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-        validator=$(tests/start_test_validator.py)
+        validator=$(scripts/start_test_validator.py)
 
         # Perform initial Solana setup.
         solana-keygen new --no-bip39-passphrase --silent
         solana config set --url http://127.0.0.1:8899
         # Try to airdrop some times in case it fails
-        tests/airdrop_lamports.sh
+        scripts/airdrop_lamports.sh
 
-        tests/test_solido.py
+        scripts/test_solido.py
         killall -9 solana-test-validator
         rm -r test-ledger
 
     - name: Run Multisig integration test
       run: |
         export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-        validator=$(tests/start_test_validator.py)
+        validator=$(scripts/start_test_validator.py)
 
-        tests/airdrop_lamports.sh
+        scripts/airdrop_lamports.sh
 
-        tests/test_multisig.py
+        scripts/test_multisig.py
         killall -9 solana-test-validator
         rm -r test-ledger
 
@@ -183,8 +183,4 @@ jobs:
 
     - name: Check license compatibility
       run: |
-        tests/check_licenses.py
-
-    - name: Typecheck Python
-      run: |
-        git ls-files | grep '\.py$' | xargs mypy
+        scripts/check_licenses.py
