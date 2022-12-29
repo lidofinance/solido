@@ -166,7 +166,7 @@ class SolanaProgramInfo(NamedTuple):
 
 def solana_program_show(program_id: str) -> SolanaProgramInfo:
     """
-    Return information about a program.,
+    Return information about a program.
     """
     result = solana('program', 'show', '--output', 'json', program_id)
     data: Dict[str, Any] = json.loads(result)
