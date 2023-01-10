@@ -166,7 +166,7 @@ class SolanaProgramInfo(NamedTuple):
 
 def solana_program_show(program_id: str) -> SolanaProgramInfo:
     """
-    Return information about a program.,
+    Return information about a program.
     """
     result = solana('program', 'show', '--output', 'json', program_id)
     data: Dict[str, Any] = json.loads(result)
@@ -178,6 +178,13 @@ def solana_program_show(program_id: str) -> SolanaProgramInfo:
         last_deploy_slot=data['lastDeploySlot'],
         data_len=data['dataLen'],
     )
+
+
+def get_path_to_default_account() -> str:
+    """
+    Return the default public key from any available account.
+    """
+    return os.path.expanduser(os.getenv('SOLANA_DEFAULT_KEYPAIR', '~/.config/solana/id.json'))
 
 
 def create_test_account(keypair_fname: str, *, fund: bool = True) -> TestAccount:

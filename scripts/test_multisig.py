@@ -31,6 +31,7 @@ from util import (
     solana_program_show,
     multisig,
     get_solido_program_path,
+    get_path_to_default_account,
     spl_token,
 )
 
@@ -321,6 +322,38 @@ change_multisig_transaction_address = result['transaction_address']
 print(f'> Transaction address is {change_multisig_transaction_address}.')
 
 
+print('\nAdding back the third owner ...')
+result = multisig(
+    'propose-change-multisig',
+    '--multisig-program-id',
+    multisig_program_id,
+    '--multisig-address',
+    multisig_address,
+    '--threshold',
+    '2',
+    '--owners',
+    ','.join([addr1.pubkey, addr2.pubkey, addr3.pubkey]),
+    keypair_path=addr1.keypair_path,
+)
+change_multisig_transaction_address = result['transaction_address']
+print(f'> Transaction address is {change_multisig_transaction_address}.')
+
+print('\nProposing to remove again the third owner from the multisig ...')
+# This time we explicitly revoke the third owner. The threshold remains 2.
+result = multisig(
+    'propose-revoke-owner',
+    '--multisig-program-id',
+    multisig_program_id,
+    '--multisig-address',
+    multisig_address,
+    '--owner',
+    addr3.pubkey,
+    keypair_path=addr1.keypair_path,
+)
+change_multisig_transaction_address = result['transaction_address']
+print(f'> Transaction address is {change_multisig_transaction_address}.')
+
+
 print('\nApproving transaction from a second account ...')
 result = multisig(
     'approve',
@@ -481,6 +514,8 @@ spl_token(
     'create-account',
     test_token.pubkey,
     test_token_account_1.keypair_path,
+    '--fee-payer',
+    get_path_to_default_account(),
     '--owner',
     multisig_program_derived_address,
 )
@@ -489,7 +524,7 @@ print(f'\nTesting transferring token from mint {test_token} ...')
 spl_token('create-account', test_token.pubkey, test_token_account_2.keypair_path)
 spl_token('mint', test_token.pubkey, '100', test_token_account_1.pubkey)
 print(
-    f'> Testing transfering 10 tokens from {test_token_account_1} to {test_token_account_2}.'
+    f'> Testing transferring 10 tokens from {test_token_account_1} to {test_token_account_2}.'
 )
 result = multisig(
     'token-transfer',
