@@ -190,6 +190,50 @@ def verify_solido_state() -> None:
     print("\nCurrent migration state: " + SolidoState)
 
 
+def verify_add_multisig_owner_transaction_data(json_data: Any) -> bool:
+    if not set(json_data.keys()) == {
+        "multisig_address",
+        "did_execute",
+        "signers",
+        "instruction",
+        "parsed_instruction",
+    }:
+        return False
+    if not json_data["did_execute"]:
+        return False
+    if not set(json_data["signers"].keys()) == {"Outdated"}:
+        return False
+    if not (
+        len(json_data["parsed_instruction"]["MultisigChange"]["old_owners"])
+        <= len(json_data["parsed_instruction"]["MultisigChange"]["new_owners"])
+    ):
+        return False
+
+    return True
+
+
+def verify_revoke_multisig_owner_transaction_data(json_data: Any) -> bool:
+    if not set(json_data.keys()) == {
+        "multisig_address",
+        "did_execute",
+        "signers",
+        "instruction",
+        "parsed_instruction",
+    }:
+        return False
+    if not json_data["did_execute"]:
+        return False
+    if not set(json_data["signers"].keys()) == {"Outdated"}:
+        return False
+    if not (
+        len(json_data["parsed_instruction"]["MultisigChange"]["old_owners"])
+        >= len(json_data["parsed_instruction"]["MultisigChange"]["new_owners"])
+    ):
+        return False
+
+    return True
+
+
 def verify_transaction_data(json_data: Any) -> bool:
     l1_keys = json_data['parsed_instruction']
     output_buf = ""

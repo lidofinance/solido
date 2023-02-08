@@ -8,9 +8,8 @@ import argparse
 import json
 import sys
 import os.path
-from typing import Any, Optional
+from typing import Any
 import verify_transaction
-from install_solido import install_solido
 
 from util import solido, solana, run  # type: ignore
 
@@ -125,8 +124,8 @@ if __name__ == '__main__':
 
     sys.argv.append('--verbose')
 
-    install_solido()
-    with open(str(os.getenv("SOLIDO_CONFIG"))) as f:
+    solido_config_path = os.getenv("SOLIDO_CONFIG") or "../solido_config.json"
+    with open(solido_config_path) as f:
         config = json.load(f)
         cluster = config.get("cluster")
         if cluster:
@@ -134,7 +133,8 @@ if __name__ == '__main__':
 
     if args.command == "deactivate-validators":
         set_solido_cli_path(os.getenv("SOLIDO_V1"))
-        lido_state = solido('--config', os.getenv("SOLIDO_CONFIG"), 'show-solido')
+        lido_state = solido(
+            '--config', os.getenv("SOLIDO_CONFIG"), 'show-solido')
         validators = lido_state['solido']['validators']['entries']
         print("vote accounts:")
         with open(args.outfile, 'w') as ofile:
@@ -209,7 +209,8 @@ if __name__ == '__main__':
 
     elif args.command == "load-program":
         set_solido_cli_path(os.getenv("SOLIDO_V1"))
-        lido_state = solido('--config', os.getenv("SOLIDO_CONFIG"), 'show-solido')
+        lido_state = solido(
+            '--config', os.getenv("SOLIDO_CONFIG"), 'show-solido')
         write_result = solana(
             '--output',
             'json',
@@ -251,6 +252,44 @@ if __name__ == '__main__':
                 set_solido_cli_path(os.getenv("SOLIDO_V2"))
                 verify_transaction.verify_solido_state()
                 verify_transaction.verify_transactions(ifile)
+            elif args.phase == "add-multisig-owner":
+                print(args.phase)
+                for line in ifile:
+                    line = line.strip()
+                    if len(line) < 1:
+                        continue
+                    transaction_data = solido(
+                        "--config",
+                        os.getenv("SOLIDO_CONFIG"),
+                        "multisig",
+                        "show-transaction",
+                        "--transaction-address",
+                        line,
+                    )
+                    good = (
+                        verify_transaction.verify_add_multisig_owner_transaction_data(
+                            transaction_data
+                        )
+                    )
+                    eprint(f"* {line} {good and 'OK' or 'BAD'}")
+            elif args.phase == "revoke-multisig-owner":
+                print(args.phase)
+                for line in ifile:
+                    line = line.strip()
+                    if len(line) < 1:
+                        continue
+                    transaction_data = solido(
+                        "--config",
+                        os.getenv("SOLIDO_CONFIG"),
+                        "multisig",
+                        "show-transaction",
+                        "--transaction-address",
+                        line,
+                    )
+                    good = verify_transaction.verify_revoke_multisig_owner_transaction_data(
+                        transaction_data
+                    )
+                    eprint(f"* {line} {good and 'OK' or 'BAD'}")
             else:
                 print("Unknown phase")
     elif args.command == "install-solido":
