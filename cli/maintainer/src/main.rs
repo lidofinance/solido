@@ -206,7 +206,7 @@ REWARDS
     Multisig(MultisigOpts),
 
     /// Set max_commission_percentage to control validator's fees.
-    /// If validators exeed the threshold they will be deactivated by
+    /// If validators exceed the threshold they will be deactivated by
     /// a maintainer.
     ///
     /// Requires the manager to sign.
