@@ -7,6 +7,7 @@ Deploy Solido and Serum on the testnet, bind the maintainer bot to the Solido.
 cluster = "https://api.testnet.solana.com"
 
 import os
+import json
 
 from util import (
     TestAccount,
@@ -37,28 +38,7 @@ def main():
     os.makedirs(".testnet-assets", exist_ok=True)
     os.environ["NETWORK"] = cluster
 
-    solido_program_id = maybe_from_file(".testnet-assets/solido-program-id")
-    if solido_program_id is None:
-        print("\nUploading Solido program ...")
-        solido_program_id = solana_program_deploy(
-            get_solido_program_path() + "/lido.so"
-        )
-    else:
-        print("\nUsing existing Solido program ...")
-    print(f"> Solido program id is {solido_program_id}")
-    write(solido_program_id, to=".testnet-assets/solido-program-id")
-
-    multisig_program_id = maybe_from_file(".testnet-assets/multisig-program-id")
-    if multisig_program_id is None:
-        print("\nUploading Multisig program ...")
-        multisig_program_id = solana_program_deploy(
-            get_solido_program_path() + "/serum_multisig.so"
-        )
-    else:
-        print("\nUsing existing Multisig program ...")
-    print(f"> Multisig program id is {multisig_program_id}")
-    write(multisig_program_id, to=".testnet-assets/multisig-program-id")
-
+    ### Checking the keys are present and creating them if not
     maintainer = maybe_from_file(".testnet-assets/maintainer")
     if maintainer is None:
         print("\nGenerating maintainer keypair ...")
@@ -71,23 +51,43 @@ def main():
 
     owner = maybe_from_file(".testnet-assets/owner")
     if owner is None:
-        print("\nGenerating stSOL owner keypair ...")
+        print("\nGenerating a multisig owner keypair ...")
         owner = create_test_account(".testnet-assets/owner")
     else:
-        print("\nUsing existing stSOL owner keypair ...")
+        print("\nUsing existing multisig owner keypair ...")
         pubkey = run("solana-keygen", "pubkey", ".testnet-assets/owner").strip()
         owner = TestAccount(pubkey, ".testnet-assets/owner")
     print(f"> Owner is {owner}")
 
-    signer = maybe_from_file(".testnet-assets/signer")
-    if signer is None:
-        print("\nGenerating signer keypair ...")
-        signer = create_test_account(".testnet-assets/signer")
+    ### Solido
+    solido_program_id = maybe_from_file(".testnet-assets/solido-program-id")
+    if solido_program_id is None:
+        print("\nUploading Solido program ...")
+        result = solana(
+            "--keypair=.testnet-assets/owner",
+            "program",
+            "deploy",
+            "--output=json",
+            get_solido_program_path() + "/lido.so",
+        )
+        program_id: str = json.loads(result)["programId"]
+        solido_program_id = program_id
     else:
-        print("\nUsing existing signer keypair ...")
-        pubkey = run("solana-keygen", "pubkey", ".testnet-assets/signer").strip()
-        signer = TestAccount(pubkey, ".testnet-assets/signer")
-    print(f"> Signer is {signer}")
+        print("\nUsing existing Solido program ...")
+    print(f"> Solido program id is {solido_program_id}")
+    write(solido_program_id, to=".testnet-assets/solido-program-id")
+
+    ### Multisig
+    multisig_program_id = maybe_from_file(".testnet-assets/multisig-program-id")
+    if multisig_program_id is None:
+        print("\nUploading Multisig program ...")
+        multisig_program_id = solana_program_deploy(
+            get_solido_program_path() + "/serum_multisig.so"
+        )
+    else:
+        print("\nUsing existing Multisig program ...")
+    print(f"> Multisig program id is {multisig_program_id}")
+    write(multisig_program_id, to=".testnet-assets/multisig-program-id")
 
     multisig_instance = maybe_from_file(".testnet-assets/multisig-instance")
     if multisig_instance is None:
@@ -100,7 +100,7 @@ def main():
             "1",
             "--owners",
             maintainer.pubkey,
-            keypair_path=signer.keypair_path,
+            keypair_path=owner.keypair_path,
         )
         multisig_instance = multisig_data["multisig_address"]
     else:
@@ -135,7 +135,7 @@ def main():
             owner.pubkey,
             "--multisig-address",
             multisig_instance,
-            keypair_path=maintainer.keypair_path,
+            keypair_path=owner.keypair_path,
         )
         solido_address = result["solido_address"]
     else:
@@ -152,6 +152,7 @@ def main():
     )
 
     solana(
+        "--keypair=.testnet-assets/owner",
         "program",
         "set-upgrade-authority",
         "--new-upgrade-authority",
@@ -181,6 +182,18 @@ def main():
         keypair_path=maintainer.keypair_path,
     )
     approve_and_execute(add_maintainer_tx["transaction_address"])
+
+    output = {
+        "cluster": cluster,
+        "multisig_program_id": multisig_program_id,
+        "multisig_address": multisig_instance,
+        "solido_program_id": solido_program_id,
+        "solido_address": solido_address,
+        "st_sol_mint": "(tbd)",
+    }
+    print("> Config file is `./solido_testnet_config.json`")
+    with open("solido_testnet_config.json", "w") as outfile:
+        json.dump(output, outfile, indent=4)
 
 
 if __name__ == "__main__":
