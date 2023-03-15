@@ -166,7 +166,7 @@ def main():
         signer_keypair_paths=[owner.keypair_path],
     )
 
-    print("Adding maintainer ...")
+    print("\nAdding maintainer ...")
     add_maintainer_tx = solido(
         "add-maintainer",
         "--multisig-program-id",
