@@ -1,0 +1,8 @@
+{
+    "cluster": "https://api.testnet.solana.com",
+    "multisig_program_id": "Fpnc1Jg8tcsgiSC3neK7JX7SYyas8Gm5gzvqyAUzm178",
+    "multisig_address": "4kNJeUpVrc6wYCQ64XYyGouenJGdoH9xmdoroYBZEWi2",
+    "solido_program_id": "HJPgAuxpbh5hJaPJFxbfrQTRG3kJGrL7q2mRkzyR8FpP",
+    "solido_address": "HcEa7CSnvzYJiLf5xbiBppfgvmMtZSs1FPW5W4xzCdGp",
+    "st_sol_mint": ""
+}
