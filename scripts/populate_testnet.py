@@ -99,7 +99,7 @@ def main():
             "--threshold",
             "1",
             "--owners",
-            maintainer.pubkey,
+            owner.pubkey,
             keypair_path=owner.keypair_path,
         )
         multisig_instance = multisig_data["multisig_address"]
@@ -163,7 +163,7 @@ def main():
     approve_and_execute = get_approve_and_execute(
         multisig_program_id=multisig_program_id,
         multisig_instance=multisig_instance,
-        signer_keypair_paths=[maintainer.keypair_path],
+        signer_keypair_paths=[owner.keypair_path],
     )
 
     print("Adding maintainer ...")
@@ -179,7 +179,7 @@ def main():
         maintainer.pubkey,
         "--multisig-address",
         multisig_instance,
-        keypair_path=maintainer.keypair_path,
+        keypair_path=owner.keypair_path,
     )
     approve_and_execute(add_maintainer_tx["transaction_address"])
 
