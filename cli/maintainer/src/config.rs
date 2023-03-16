@@ -663,6 +663,26 @@ cli_opt_struct! {
 }
 
 cli_opt_struct! {
+    ProposeUpgradeAuthorityChangeMultisigOpts {
+        /// The multisig account to modify.
+        #[clap(long)]
+        multisig_address: Pubkey,
+
+        /// Address of the Multisig program.
+        #[clap(long)]
+        multisig_program_id: Pubkey,
+
+        /// The deployed program to change the upgrade authority of.
+        #[clap(long)]
+        program_id: Pubkey,
+
+        /// The new authority to set.
+        #[clap(long)]
+        new_authority: Pubkey,
+    }
+}
+
+cli_opt_struct! {
     ProposeOwnerMultisigOpts {
         /// The multisig account to modify.
         #[clap(long)]

@@ -14,6 +14,7 @@ use clap::Parser;
 use serde::Serialize;
 use serum_multisig::accounts as multisig_accounts;
 use serum_multisig::instruction as multisig_instruction;
+use solana_program::bpf_loader_upgradeable::set_upgrade_authority;
 use solana_sdk::bpf_loader_upgradeable;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::program_pack::Pack;
@@ -40,8 +41,8 @@ use solido_cli_common::{
 
 use crate::config::{
     ApproveBatchOpts, ApproveOpts, ConfigFile, CreateMultisigOpts, ExecuteTransactionOpts,
-    ProposeChangeMultisigOpts, ProposeOwnerMultisigOpts, ProposeUpgradeOpts, ShowMultisigOpts,
-    ShowTransactionOpts, TransferTokenOpts,
+    ProposeChangeMultisigOpts, ProposeOwnerMultisigOpts, ProposeUpgradeAuthorityChangeMultisigOpts,
+    ProposeUpgradeOpts, ShowMultisigOpts, ShowTransactionOpts, TransferTokenOpts,
 };
 use crate::print_output;
 
@@ -73,6 +74,9 @@ impl MultisigOpts {
                 opts.merge_with_config_and_environment(config_file)
             }
             SubCommand::ProposeRevokeOwner(opts) => {
+                opts.merge_with_config_and_environment(config_file)
+            }
+            SubCommand::ProposeUpgradeAuthorityChange(opts) => {
                 opts.merge_with_config_and_environment(config_file)
             }
             SubCommand::Approve(opts) => opts.merge_with_config_and_environment(config_file),
@@ -107,6 +111,9 @@ enum SubCommand {
 
     /// Propose revoking an owner from the set of owners of this multisig.
     ProposeRevokeOwner(ProposeOwnerMultisigOpts),
+
+    /// Propose setting the upgrade authority of a program to another address.
+    ProposeUpgradeAuthorityChange(ProposeUpgradeAuthorityChangeMultisigOpts),
 
     /// Approve a proposed transaction.
     Approve(ApproveOpts),
@@ -164,6 +171,12 @@ pub fn main(config: &mut SnapshotClientConfig, multisig_opts: MultisigOpts) {
         SubCommand::ProposeRevokeOwner(cmd_opts) => {
             let result = config.with_snapshot(|config| propose_revoke_owner(config, &cmd_opts));
             let output = result.ok_or_abort_with("Failed to propose revocation.");
+            print_output(output_mode, &output);
+        }
+        SubCommand::ProposeUpgradeAuthorityChange(cmd_opts) => {
+            let result =
+                config.with_snapshot(|config| propose_upgrade_authority_change(config, &cmd_opts));
+            let output = result.ok_or_abort_with("Failed to propose upgrade authority change.");
             print_output(output_mode, &output);
         }
         SubCommand::Approve(cmd_opts) => {
@@ -1704,6 +1717,27 @@ fn transfer_token(
         &[],
         *opts.amount(),
     )?;
+    propose_instruction(
+        config,
+        opts.multisig_program_id(),
+        *opts.multisig_address(),
+        instruction,
+    )
+}
+
+fn propose_upgrade_authority_change(
+    config: &mut SnapshotConfig,
+    opts: &ProposeUpgradeAuthorityChangeMultisigOpts,
+) -> Result<ProposeInstructionOutput> {
+    let (program_derived_address, _nonce) =
+        get_multisig_program_address(opts.multisig_program_id(), opts.multisig_address());
+
+    let instruction = set_upgrade_authority(
+        opts.program_id(),
+        &program_derived_address,
+        Some(opts.new_authority()),
+    );
+
     propose_instruction(
         config,
         opts.multisig_program_id(),
