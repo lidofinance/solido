@@ -1409,9 +1409,9 @@ impl fmt::Display for ApproveOutput {
     }
 }
 
-fn approve<'a>(
+fn approve(
     config: &mut SnapshotClientConfig,
-    transactions: &'a [Pubkey],
+    transactions: &[Pubkey],
     multisig_program_id: &Pubkey,
     multisig_address: &Pubkey,
 ) -> std::result::Result<ApproveOutput, crate::Error> {

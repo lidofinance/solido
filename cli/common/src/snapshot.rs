@@ -423,11 +423,11 @@ impl<'a> Snapshot<'a> {
 
         // RpcError::ForUser is also what `confirm_transaction_with_spinner`
         // returns if it fails to confirm within a certain time.
-        return Err(RpcError::ForUser(format!(
+        Err(RpcError::ForUser(format!(
             "Failed to confirm transaction {} within 32 seconds.",
             signature,
         ))
-        .into());
+        .into())
     }
 
     /// Send a transaction, show a spinner on stdout.
