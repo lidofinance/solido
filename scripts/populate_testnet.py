@@ -166,6 +166,27 @@ def main():
         signer_keypair_paths=[owner.keypair_path],
     )
 
+    all_validators = validators()
+    active_validators = [v for v in all_validators
+                         if not v.delinquent
+                         and v.commission == MAX_VALIDATION_COMMISSION_PERCENTAGE]
+    for v in active_validators[:2]:
+        add_validator_tx = solido(
+            "add-validator",
+            "--multisig-program-id",
+            multisig_program_id,
+            "--solido-program-id",
+            solido_program_id,
+            "--solido-address",
+            solido_address,
+            "--validator-vote-account",
+            v.vote_account_pubkey,
+            "--multisig-address",
+            multisig_instance,
+            keypair_path=owner.keypair_path,
+        )
+        approve_and_execute(add_validator_tx["transaction_address"])
+
     print("\nAdding maintainer ...")
     add_maintainer_tx = solido(
         "add-maintainer",
