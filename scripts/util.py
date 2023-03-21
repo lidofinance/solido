@@ -40,6 +40,16 @@ class ValidatorDesc(NamedTuple):
     skip_rate: Optional[int]
 
 
+def maybe_from_file(path: str) -> str | None:
+    """ Map `FileNotFound` to `None`.
+    """
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return None
+
+
 def run(*args: str) -> str:
     return str(run_process(*args).stdout)
 
