@@ -1702,6 +1702,7 @@ fn execute_transaction(
     Ok(result)
 }
 
+/// Transfer tokens from a multisig account to another account.
 fn transfer_token(
     config: &mut SnapshotConfig,
     opts: &TransferTokenOpts,
@@ -1725,6 +1726,7 @@ fn transfer_token(
     )
 }
 
+/// Set new upgrade authority for a program.
 fn propose_set_upgrade_authority(
     config: &mut SnapshotConfig,
     opts: &SetUpgradeAuthorityOpts,
