@@ -34,7 +34,6 @@ from util import (
     solana_program_deploy,
     get_solido_program_path,
     get_approve_and_execute,
-    get_network,
     validators,
     MAX_VALIDATION_COMMISSION_PERCENTAGE,
 )
@@ -47,7 +46,7 @@ def main():
     config = maybe_from_file(well_known_config_location)
     if config is None:
         config = {
-            "cluster": get_network() or "https://api.devnet.solana.com",
+            "cluster": os.getenv("NETWORK") or "https://api.devnet.solana.com",
         }
     else:
         config = json.loads(config)
