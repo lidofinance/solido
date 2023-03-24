@@ -663,7 +663,7 @@ cli_opt_struct! {
 }
 
 cli_opt_struct! {
-    ProposeUpgradeAuthorityChangeMultisigOpts {
+    SetUpgradeAuthorityOpts {
         /// The multisig account to modify.
         #[clap(long)]
         multisig_address: Pubkey,

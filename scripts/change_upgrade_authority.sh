@@ -18,7 +18,7 @@ MULTISIG_ADDRESS=`jq -r .multisig_address < solido_testnet_config.json`
 target/debug/solido --config=./solido_testnet_config.json \
                     --keypair-path=.testnet-assets/owner \
                     multisig \
-                    propose-upgrade-authority-change \
+                    set-upgrade-authority \
                     --multisig-address=${MULTISIG_ADDRESS} \
                     --multisig-program-id=${MULTISIG_PROGRAM_ID} \
                     --program-id=${SOLIDO_PROGRAM_ID} \
