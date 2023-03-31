@@ -82,9 +82,15 @@ def main():
     multisig_program_id = config.get("multisig_program_id")
     if multisig_program_id is None:
         print("\nUploading Multisig program ...")
-        multisig_program_id = util.solana_program_deploy(
-            util.get_solido_program_path() + "/serum_multisig.so"
+        result = util.solana(
+            "--keypair=.testnet-keys/multisig-owner",
+            "program",
+            "deploy",
+            "--output=json",
+            util.get_solido_program_path() + "/serum_multisig.so",
         )
+        program_id: str = json.loads(result)["programId"]
+        multisig_program_id = program_id
     else:
         print("\nUsing existing Multisig program ...")
     print(f"> Multisig program id is {multisig_program_id}")
