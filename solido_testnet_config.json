@@ -1,8 +1,8 @@
 {
     "cluster": "https://api.testnet.solana.com",
-    "multisig_program_id": "Fpnc1Jg8tcsgiSC3neK7JX7SYyas8Gm5gzvqyAUzm178",
-    "multisig_address": "4kNJeUpVrc6wYCQ64XYyGouenJGdoH9xmdoroYBZEWi2",
-    "solido_program_id": "HJPgAuxpbh5hJaPJFxbfrQTRG3kJGrL7q2mRkzyR8FpP",
-    "solido_address": "HcEa7CSnvzYJiLf5xbiBppfgvmMtZSs1FPW5W4xzCdGp",
-    "st_sol_mint": ""
+    "multisig_program_id": "AM9wZbsi3BaTYpgXWpRW7y78iBqjqEgwvu48RkAydNPo",
+    "multisig_address": "9dsg6WJjdK3sxvfs72Nu1B2CsqVk17L4arjFUxpZVEZ4",
+    "solido_program_id": "79u3pW4w3avGnayP5JysRAWAmPi6RhMr81psKRMEbmGj",
+    "solido_address": "AbEGtj1dLmJ9yMvQyYFisEerJBU4g3v273kSSzJ3Jtvk",
+    "st_sol_mint": "EvNUCAwhosjHQnbzbQdKL2dUsQcipbLgV5aEzxdeVQ4g"
 }
