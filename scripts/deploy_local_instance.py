@@ -12,42 +12,31 @@ import json
 import os
 from typing import Optional, Any
 
-from util import (
-    create_test_account,
-    solana_program_deploy,
-    create_vote_account,
-    get_network,
-    solana,
-    solido,
-    multisig,
-    get_approve_and_execute,
-    get_solido_program_path,
-    MAX_VALIDATION_COMMISSION_PERCENTAGE,
-)
+import util
 
 
 class Instance:
     def __init__(self) -> None:
         print('\nUploading Solido program ...')
-        self.solido_program_id = solana_program_deploy(
-            get_solido_program_path() + '/lido.so'
+        self.solido_program_id = util.solana_program_deploy(
+            util.get_solido_program_path() + '/lido.so'
         )
         print(f'> Solido program id is {self.solido_program_id}')
 
         print('\nUploading Multisig program ...')
-        self.multisig_program_id = solana_program_deploy(
-            get_solido_program_path() + '/serum_multisig.so'
+        self.multisig_program_id = util.solana_program_deploy(
+            util.get_solido_program_path() + '/serum_multisig.so'
         )
         print(f'> Multisig program id is {self.multisig_program_id}')
 
         os.makedirs('tests/.keys', exist_ok=True)
-        self.maintainer = create_test_account('tests/.keys/maintainer.json')
-        st_sol_accounts_owner = create_test_account(
+        self.maintainer = util.create_test_account('tests/.keys/maintainer.json')
+        st_sol_accounts_owner = util.create_test_account(
             'tests/.keys/st-sol-accounts-owner.json'
         )
 
         print('\nCreating new multisig ...')
-        multisig_data = multisig(
+        multisig_data = util.multisig(
             'create-multisig',
             '--multisig-program-id',
             self.multisig_program_id,
@@ -60,7 +49,7 @@ class Instance:
         print(f'> Created instance at {self.multisig_instance}')
 
         print('\nCreating Solido instance ...')
-        result = solido(
+        result = util.solido(
             'create-solido',
             '--multisig-program-id',
             self.multisig_program_id,
@@ -71,7 +60,7 @@ class Instance:
             '--max-maintainers',
             '3',
             '--max-commission-percentage',
-            str(MAX_VALIDATION_COMMISSION_PERCENTAGE),
+            str(util.MAX_VALIDATION_COMMISSION_PERCENTAGE),
             '--treasury-fee-share',
             '5',
             '--developer-fee-share',
@@ -97,7 +86,7 @@ class Instance:
         print(f'> Created instance at {self.solido_address}')
 
         solido_instance = self.pull_solido()
-        solana(
+        util.solana(
             'program',
             'set-upgrade-authority',
             '--new-upgrade-authority',
@@ -105,7 +94,7 @@ class Instance:
             self.solido_program_id,
         )
 
-        self.approve_and_execute = get_approve_and_execute(
+        self.approve_and_execute = util.get_approve_and_execute(
             multisig_program_id=self.multisig_program_id,
             multisig_instance=self.multisig_instance,
             signer_keypair_paths=[self.maintainer.keypair_path],
@@ -113,25 +102,25 @@ class Instance:
 
         # For the first validator, add the test validator itself, so we include a
         # validator that is actually voting, and earning rewards.
-        current_validators = json.loads(solana('validators', '--output', 'json'))
+        current_validators = json.loads(util.solana('validators', '--output', 'json'))
 
         # If we're running on localhost, change the comission
-        if get_network() == 'http://127.0.0.1:8899':
+        if util.get_network() == 'http://127.0.0.1:8899':
             solido_instance = self.pull_solido()
             print(
                 '> Changing validator\'s comission to {}% ...'.format(
-                    MAX_VALIDATION_COMMISSION_PERCENTAGE
+                    util.MAX_VALIDATION_COMMISSION_PERCENTAGE
                 )
             )
             validator = current_validators['validators'][0]
-            validator['commission'] = str(MAX_VALIDATION_COMMISSION_PERCENTAGE)
-            solana(
+            validator['commission'] = str(util.MAX_VALIDATION_COMMISSION_PERCENTAGE)
+            util.solana(
                 'vote-update-commission',
                 validator['voteAccountPubkey'],
-                str(MAX_VALIDATION_COMMISSION_PERCENTAGE),
+                str(util.MAX_VALIDATION_COMMISSION_PERCENTAGE),
                 './test-ledger/vote-account-keypair.json',
             )
-            solana(
+            util.solana(
                 'validator-info',
                 'publish',
                 '--keypair',
@@ -147,7 +136,7 @@ class Instance:
             v
             for v in current_validators['validators']
             if (not v['delinquent'])
-            and v['commission'] == str(MAX_VALIDATION_COMMISSION_PERCENTAGE)
+            and v['commission'] == str(util.MAX_VALIDATION_COMMISSION_PERCENTAGE)
         ]
 
         # Add up to 5 of the active validators. Locally there will only be one, but on
@@ -166,7 +155,7 @@ class Instance:
         # )
 
         print('Adding maintainer ...')
-        transaction_result = solido(
+        transaction_result = util.solido(
             'add-maintainer',
             '--multisig-program-id',
             self.multisig_program_id,
@@ -183,7 +172,7 @@ class Instance:
         self.approve_and_execute(transaction_result['transaction_address'])
 
         output = {
-            "cluster": get_network(),
+            "cluster": util.get_network(),
             "multisig_program_id": self.multisig_program_id,
             "multisig_address": self.multisig_instance,
             "solido_program_id": self.solido_program_id,
@@ -215,7 +204,7 @@ class Instance:
         )
 
     def pull_solido(self) -> Any:
-        return solido(
+        return util.solido(
             'show-solido',
             '--solido-program-id',
             self.solido_program_id,
@@ -232,21 +221,21 @@ class Instance:
         print(f'\nCreating validator {index} ...')
 
         if vote_account is None:
-            validator = create_test_account(
+            validator = util.create_test_account(
                 f'tests/.keys/validator-{index}-account.json'
             )
-            validator_vote_account, _ = create_vote_account(
+            validator_vote_account, _ = util.create_vote_account(
                 f'tests/.keys/validator-{index}-vote-account.json',
                 validator.keypair_path,
                 f'tests/.keys/validator-{index}-withdraw-account.json',
-                MAX_VALIDATION_COMMISSION_PERCENTAGE,
+                util.MAX_VALIDATION_COMMISSION_PERCENTAGE,
             )
             vote_account = validator_vote_account.pubkey
 
         print(f'> Validator vote account:        {vote_account}')
 
         print('Adding validator ...')
-        transaction_result = solido(
+        transaction_result = util.solido(
             'add-validator',
             '--multisig-program-id',
             self.multisig_program_id,

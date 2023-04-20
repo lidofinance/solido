@@ -26,6 +26,30 @@ class TestAccount(NamedTuple):
         return self.pubkey
 
 
+class ValidatorDesc(NamedTuple):
+    identity_pubkey: str
+    vote_account_pubkey: str
+    commission: int
+    last_vote: int
+    root_slot: int
+    credits: int
+    epoch_credits: int
+    activated_stake: int
+    version: str
+    delinquent: bool
+    skip_rate: Optional[int]
+
+
+def maybe_from_file(path: str) -> str | None:
+    """ Map `FileNotFound` to `None`.
+    """
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return None
+
+
 def run(*args: str) -> str:
     return str(run_process(*args).stdout)
 
@@ -101,6 +125,27 @@ def solido(*args: str, keypair_path: Optional[str] = None) -> Any:
             print('Failed to decode output as json, output was:')
             print(output)
             raise
+
+
+def validators() -> list[ValidatorDesc]:
+    output = run(
+        'solana', '--url', get_network(), '--output', 'json', '--commitment', 'confirmed', 'validators')
+    return [
+        ValidatorDesc(
+            identity_pubkey=o['identityPubkey'],
+            vote_account_pubkey=o['voteAccountPubkey'],
+            commission=o['commission'],
+            last_vote=o['lastVote'],
+            root_slot=o['rootSlot'],
+            credits=o['credits'],
+            epoch_credits=o['epochCredits'],
+            activated_stake=o['activatedStake'],
+            version=o['version'],
+            delinquent=o['delinquent'],
+            skip_rate=o['skipRate'],
+        )
+        for o in json.loads(output)["validators"]
+    ]
 
 
 def solana(*args: str) -> str:
