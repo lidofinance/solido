@@ -347,6 +347,13 @@ pub struct Validator {
     /// Controls if a validator is allowed to have new stake deposits.
     /// When removing a validator, this flag should be set to `false`.
     pub active: bool,
+
+    /// Ratio of successful votes to total votes.
+    /// This indicates how well the validator is voting for blocks produced by other validators.
+    pub vote_success_rate: u8,
+
+    /// How many blocks, on average, the validator is producing per minute.
+    pub block_production_rate: u8,
 }
 
 /// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
@@ -468,7 +475,7 @@ impl Validator {
     /// Get stake account address that should be merged into another right after creation.
     /// This function should be used to create temporary stake accounts
     /// tied to the epoch that should be merged into another account and destroyed
-    /// after a transaction. So that each epoch would have a diferent
+    /// after a transaction. So that each epoch would have a different
     /// generation of stake accounts. This is done for security purpose
     pub fn find_temporary_stake_account_address(
         &self,
@@ -485,7 +492,7 @@ impl Validator {
 impl Sealed for Validator {}
 
 impl Pack for Validator {
-    const LEN: usize = 89;
+    const LEN: usize = 91;
     fn pack_into_slice(&self, data: &mut [u8]) {
         let mut data = data;
         BorshSerialize::serialize(&self, &mut data).unwrap();
@@ -506,6 +513,8 @@ impl Default for Validator {
             effective_stake_balance: Lamports(0),
             active: true,
             vote_account_address: Pubkey::default(),
+            vote_success_rate: 0,
+            block_production_rate: 0,
         }
     }
 }
@@ -1854,7 +1863,7 @@ mod test_lido {
         let mut buffer: Vec<u8> =
             vec![0; ValidatorList::required_bytes(accounts.header.max_entries)];
         let mut slice = &mut buffer[..];
-        // seriaslize empty list to buffer, which serializes a header and lenght
+        // serialize empty list to buffer, which serializes a header and length
         BorshSerialize::serialize(&accounts, &mut slice).unwrap();
 
         // deserialize to BigVec but with a different account type
@@ -1899,6 +1908,8 @@ mod test_lido {
             unstake_accounts_balance: Lamports(3333),
             effective_stake_balance: Lamports(3465468),
             active: false,
+            vote_success_rate: 13,
+            block_production_rate: 37,
         };
 
         accounts.entries.push(elem.clone());
