@@ -246,7 +246,7 @@ pub fn process_stake_deposit(
     // the same StakeDeposit transaction, only one of them succeeds.
     let minimum_stake_validator = validators
         .iter()
-        .filter(|&v| v.active)
+        .filter(|&v| v.active && v.vote_success_rate > 0 && v.block_production_rate > 0)
         .min_by_key(|v| v.effective_stake_balance)
         .ok_or(LidoError::NoActiveValidators)?;
     let minimum_stake_pubkey = *minimum_stake_validator.pubkey();
