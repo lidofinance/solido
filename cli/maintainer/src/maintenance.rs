@@ -64,6 +64,13 @@ pub enum MaintenanceOutput {
 
     UpdateExchangeRate,
 
+    UpdateBlockProductionRate {
+        // The vote account of the validator we want to update.
+        #[serde(serialize_with = "serialize_b58")]
+        validator_vote_account: Pubkey,
+        block_production_rate: u8,
+    },
+
     UpdateStakeAccountBalance {
         /// The vote account of the validator that we want to update.
         #[serde(serialize_with = "serialize_b58")]
@@ -176,6 +183,14 @@ impl fmt::Display for MaintenanceOutput {
                     "  Amount withdrawn from unstake: {}",
                     unstake_withdrawn_to_reserve
                 )?;
+            }
+            MaintenanceOutput::UpdateBlockProductionRate {
+                validator_vote_account,
+                block_production_rate,
+            } => {
+                writeln!(f, "Updated block production rate.")?;
+                writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
+                writeln!(f, "  New block production rate:  {}", block_production_rate)?;
             }
             MaintenanceOutput::MergeStake {
                 validator_vote_account,
@@ -890,6 +905,27 @@ impl SolidoState {
         Some(MaintenanceInstruction::new(instruction, task))
     }
 
+    /// Tell the program the newest block production rate.
+    pub fn try_update_block_production_rate(&self) -> Option<MaintenanceInstruction> {
+        for validator in self.validators.entries.iter() {
+            let task = MaintenanceOutput::UpdateBlockProductionRate {
+                validator_vote_account: *validator.pubkey(),
+                block_production_rate: validator.block_production_rate,
+            };
+
+            let instruction = lido::instruction::update_block_production_rate(
+                &self.solido_program_id,
+                &lido::instruction::UpdateBlockProductionRateAccountsMeta {
+                    lido: self.solido_address,
+                    validator_list: self.solido.validator_list,
+                },
+            );
+            return Some(MaintenanceInstruction::new(instruction, task));
+        }
+
+        None
+    }
+
     /// Check if any validator's balance is outdated, and if so, update it.
     ///
     /// Merging stakes generates inactive stake that could be withdrawn with this transaction,
@@ -1498,6 +1534,7 @@ pub fn try_perform_maintenance(
         // as possible.
         .or_else(|| state.try_merge_on_all_stakes())
         .or_else(|| state.try_update_exchange_rate())
+        .or_else(|| state.try_update_block_production_rate())
         .or_else(|| state.try_unstake_from_inactive_validator())
         // Collecting validator fees goes after updating the exchange rate,
         // because it may be rejected if the exchange rate is outdated.
