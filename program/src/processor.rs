@@ -9,8 +9,8 @@ use crate::{
     error::LidoError,
     instruction::{
         DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV2Info,
-        StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateExchangeRateAccountsInfoV2,
-        UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
+        StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateBlockProductionRateAccountsInfo,
+        UpdateExchangeRateAccountsInfoV2, UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
     },
     logic::{
         burn_st_sol, check_account_data, check_account_owner, check_mint, check_rent_exempt,
@@ -617,9 +617,21 @@ pub fn process_update_exchange_rate(
 pub fn process_update_block_production_rate(
     program_id: &Pubkey,
     raw_accounts: &[AccountInfo],
+    validator_index: u32,
+    block_production_rate: u8,
 ) -> ProgramResult {
-    let accounts = UpdateExchangeRateAccountsInfoV2::try_from_slice(raw_accounts)?;
+    let accounts = UpdateBlockProductionRateAccountsInfo::try_from_slice(raw_accounts)?;
     let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
+    let mut validators = lido.deserialize_account_list_info::<Validator>(
+        program_id,
+        accounts.validator_list,
+        validator_list_data,
+    )?;
+
+    let validator = validators.get_mut(validator_index, accounts.validator_vote_account.key)?;
+    validator.block_production_rate = block_production_rate;
 
     lido.save(accounts.lido)
 }
@@ -1186,9 +1198,15 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::UpdateStakeAccountBalance { validator_index } => {
             process_update_stake_account_balance(program_id, validator_index, accounts)
         }
-        LidoInstruction::UpdateBlockProductionRate => {
-            process_update_block_production_rate(program_id, accounts)
-        }
+        LidoInstruction::UpdateBlockProductionRate {
+            validator_index,
+            block_production_rate,
+        } => process_update_block_production_rate(
+            program_id,
+            accounts,
+            validator_index,
+            block_production_rate,
+        ),
         LidoInstruction::WithdrawV2 {
             amount,
             validator_index,

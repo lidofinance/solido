@@ -153,7 +153,11 @@ pub enum LidoInstruction {
     UpdateExchangeRateV2,
 
     /// Update the block production rate of a validator.
-    UpdateBlockProductionRate,
+    UpdateBlockProductionRate {
+        // Index of a validator in validator list
+        validator_index: u32,
+        block_production_rate: u8,
+    },
 
     /// Withdraw a given amount of stSOL.
     ///
@@ -612,6 +616,10 @@ accounts_struct! {
             is_signer: false,
             is_writable: false,
         },
+        pub validator_vote_account {
+            is_signer: false,
+            is_writable: false,
+        },
 
         const sysvar_clock = sysvar::clock::id(),
     }
@@ -620,11 +628,17 @@ accounts_struct! {
 pub fn update_block_production_rate(
     program_id: &Pubkey,
     accounts: &UpdateBlockProductionRateAccountsMeta,
+    validator_index: u32,
+    block_production_rate: u8,
 ) -> Instruction {
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),
-        data: LidoInstruction::UpdateBlockProductionRate.to_vec(),
+        data: LidoInstruction::UpdateBlockProductionRate {
+            validator_index,
+            block_production_rate,
+        }
+        .to_vec(),
     }
 }
 
