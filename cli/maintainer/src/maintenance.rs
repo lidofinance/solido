@@ -907,19 +907,25 @@ impl SolidoState {
 
     /// Tell the program the newest block production rate.
     pub fn try_update_block_production_rate(&self) -> Option<MaintenanceInstruction> {
-        for validator in self.validators.entries.iter() {
-            let task = MaintenanceOutput::UpdateBlockProductionRate {
-                validator_vote_account: *validator.pubkey(),
-                block_production_rate: validator.block_production_rate,
-            };
+        for (validator_index, validator) in self.validators.entries.iter().enumerate() {
+            if false {
+                continue;
+            }
 
             let instruction = lido::instruction::update_block_production_rate(
                 &self.solido_program_id,
                 &lido::instruction::UpdateBlockProductionRateAccountsMeta {
                     lido: self.solido_address,
+                    validator_vote_account: *validator.pubkey(),
                     validator_list: self.solido.validator_list,
                 },
+                u32::try_from(validator_index).expect("Too many validators"),
+                0,
             );
+            let task = MaintenanceOutput::UpdateBlockProductionRate {
+                validator_vote_account: *validator.pubkey(),
+                block_production_rate: 0,
+            };
             return Some(MaintenanceInstruction::new(instruction, task));
         }
 
