@@ -614,6 +614,16 @@ pub fn process_update_exchange_rate(
     lido.save(accounts.lido)
 }
 
+pub fn process_update_block_production_rate(
+    program_id: &Pubkey,
+    raw_accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts = UpdateExchangeRateAccountsInfoV2::try_from_slice(raw_accounts)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    lido.save(accounts.lido)
+}
+
 #[derive(PartialEq, Clone, Copy)]
 pub enum StakeType {
     Stake,
@@ -1175,6 +1185,9 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::UpdateExchangeRateV2 => process_update_exchange_rate(program_id, accounts),
         LidoInstruction::UpdateStakeAccountBalance { validator_index } => {
             process_update_stake_account_balance(program_id, validator_index, accounts)
+        }
+        LidoInstruction::UpdateBlockProductionRate => {
+            process_update_block_production_rate(program_id, accounts)
         }
         LidoInstruction::WithdrawV2 {
             amount,

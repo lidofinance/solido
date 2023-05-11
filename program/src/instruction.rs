@@ -152,6 +152,9 @@ pub enum LidoInstruction {
     /// This can be called by anybody.
     UpdateExchangeRateV2,
 
+    /// Update the block production rate of a validator.
+    UpdateBlockProductionRate,
+
     /// Withdraw a given amount of stSOL.
     ///
     /// Caller provides some `amount` of StLamports that are to be burned in
@@ -438,7 +441,7 @@ accounts_struct! {
         // should be set to the same value as `stake_account_end`.
         pub stake_account_merge_into {
             is_signer: false,
-            // Is writable due to merge (stake_program::intruction::merge) of stake_account_end
+            // Is writable due to merge (stake_program::instruction::merge) of stake_account_end
             // into stake_account_merge_into under the condition that they are not equal
             is_writable: true,
         },
@@ -540,7 +543,7 @@ accounts_struct! {
         const sysvar_clock = sysvar::clock::id(),
         // Required to call cross-program.
         const system_program = system_program::id(),
-        // Required to call `stake_program::intruction::split`.
+        // Required to call `stake_program::instruction::split`.
         const stake_program = stake_program::program::id(),
     }
 }
@@ -596,6 +599,32 @@ pub fn update_exchange_rate(
         program_id: *program_id,
         accounts: accounts.to_vec(),
         data: LidoInstruction::UpdateExchangeRateV2.to_vec(),
+    }
+}
+
+accounts_struct! {
+    UpdateBlockProductionRateAccountsMeta, UpdateBlockProductionRateAccountsInfo {
+        pub lido {
+            is_signer: false,
+            is_writable: true,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: false,
+        },
+
+        const sysvar_clock = sysvar::clock::id(),
+    }
+}
+
+pub fn update_block_production_rate(
+    program_id: &Pubkey,
+    accounts: &UpdateBlockProductionRateAccountsMeta,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::UpdateBlockProductionRate.to_vec(),
     }
 }
 
