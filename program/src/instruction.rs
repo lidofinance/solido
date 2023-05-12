@@ -155,7 +155,9 @@ pub enum LidoInstruction {
     /// Update the block production rate of a validator.
     UpdateBlockProductionRate {
         // Index of a validator in validator list
+        #[allow(dead_code)]
         validator_index: u32,
+        #[allow(dead_code)]
         block_production_rate: u8,
     },
 

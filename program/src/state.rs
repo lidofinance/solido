@@ -513,8 +513,8 @@ impl Default for Validator {
             effective_stake_balance: Lamports(0),
             active: true,
             vote_account_address: Pubkey::default(),
-            vote_success_rate: 0,
-            block_production_rate: 0,
+            vote_success_rate: std::u8::MAX,
+            block_production_rate: std::u8::MAX,
         }
     }
 }
@@ -683,6 +683,58 @@ impl ExchangeRate {
     }
 }
 
+/// Coefficients that determine how much each factor contributes to the
+/// performance score.
+///
+/// Each number is a numerator of a fraction, the denominator is its type's max.
+///
+#[repr(C)]
+#[derive(Clone, Debug, BorshDeserialize, BorshSerialize, BorshSchema, Eq, PartialEq, Serialize)]
+pub struct Factors {
+    /// The coefficient with which a validator's stake is considered
+    /// in the performance scoring.
+    pub stake: u32,
+
+    /// The coefficient with which a validator's commission fee is considered
+    /// in the performance scoring.
+    pub commission: u32,
+
+    /// The coefficient with which `vote_success_rate` is considered
+    /// in the performance scoring.
+    pub vote_success_rate: u32,
+
+    /// The coefficient with which `block_production_rate` is considered
+    /// in the performance scoring.
+    pub block_production_rate: u32,
+}
+
+impl Default for Factors {
+    fn default() -> Self {
+        Self {
+            stake: std::u32::MAX,
+            commission: std::u32::MAX,
+            vote_success_rate: std::u32::MAX,
+            block_production_rate: std::u32::MAX,
+        }
+    }
+}
+
+impl Factors {
+    pub fn new(
+        stake: u32,
+        commission: u32,
+        vote_success_rate: u32,
+        block_production_rate: u32,
+    ) -> Self {
+        Self {
+            stake,
+            commission,
+            vote_success_rate,
+            block_production_rate,
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(
     Clone, Debug, Default, BorshDeserialize, BorshSerialize, BorshSchema, Eq, PartialEq, Serialize,
@@ -722,6 +774,10 @@ pub struct Lido {
     /// An off-chain program can load a snapshot of the `Lido` struct, and expose
     /// these metrics.
     pub metrics: Metrics,
+
+    /// Coefficients to linearly combine the performance metrics
+    /// of validators into a single score.
+    pub factors: Factors,
 
     /// Validator list account
     #[serde(serialize_with = "serialize_b58")]
@@ -1501,6 +1557,7 @@ mod test_lido {
                 developer_account: Pubkey::new_unique(),
             },
             metrics: Metrics::new(),
+            factors: Factors::default(),
             validator_list: Pubkey::new_unique(),
             maintainer_list: Pubkey::new_unique(),
             max_commission_percentage: 5,

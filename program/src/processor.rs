@@ -28,7 +28,7 @@ use crate::{
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
         AccountType, ExchangeRate, FeeRecipients, Lido, LidoV1, ListEntry, Maintainer,
-        MaintainerList, RewardDistribution, StakeDeposit, Validator, ValidatorList,
+        MaintainerList, RewardDistribution, StakeDeposit, Validator, ValidatorList, Factors,
     },
     token::{Lamports, Rational, StLamports},
     MAXIMUM_UNSTAKE_ACCOUNTS, MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT,
@@ -148,6 +148,7 @@ pub fn process_initialize(
             developer_account: *accounts.developer_account.key,
         },
         metrics: Metrics::new(),
+        factors: Factors::default(),
         validator_list: *accounts.validator_list.key,
         maintainer_list: *accounts.maintainer_list.key,
         max_commission_percentage,
@@ -1144,6 +1145,7 @@ pub fn processor_migrate_to_v2(
         mint_authority_bump_seed: lido_v1.mint_authority_bump_seed,
         stake_authority_bump_seed: lido_v1.stake_authority_bump_seed,
         metrics: lido_v1.metrics,
+        factors: Factors::default(),
     };
 
     // Confirm that the fee recipients are actually stSOL accounts.
