@@ -802,7 +802,7 @@ impl Lido {
     /// Size of a serialized `Lido` struct excluding validators and maintainers.
     ///
     /// To update this, run the tests and replace the value here with the test output.
-    pub const LEN: usize = 418;
+    pub const LEN: usize = 434;
 
     pub fn deserialize_lido(program_id: &Pubkey, lido: &AccountInfo) -> Result<Lido, ProgramError> {
         check_account_owner(lido, program_id)?;
@@ -840,7 +840,7 @@ impl Lido {
             LidoV1::LEN,
             Lido::LEN,
             // it's enough to check only bytes for `a list of size 1` to be zero,
-            // otherwize the list won't be deserializable
+            // otherwise the list won't be deserializable
             ValidatorList::required_bytes(1),
             MaintainerList::required_bytes(1),
         ]
