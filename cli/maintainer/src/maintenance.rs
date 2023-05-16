@@ -766,7 +766,7 @@ impl SolidoState {
 
             // We are only interested in validators that violate commission limit
             if let Some(state) = vote_state {
-                if state.commission <= self.solido.max_commission_percentage {
+                if state.commission <= self.solido.thresholds.max_commission {
                     continue;
                 }
             } else {

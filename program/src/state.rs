@@ -683,54 +683,43 @@ impl ExchangeRate {
     }
 }
 
-/// Coefficients that determine how much each factor contributes to the
-/// performance score.
-///
-/// Each number is a numerator of a fraction, the denominator is its type's max.
+/// Each field is an optimum for a metric.
+/// If a validator has a value for a metric that does not meet the threshold,
+/// then the validator gets deactivated.
 ///
 #[repr(C)]
 #[derive(Clone, Debug, BorshDeserialize, BorshSerialize, BorshSchema, Eq, PartialEq, Serialize)]
-pub struct Factors {
-    /// The coefficient with which a validator's stake is considered
-    /// in the performance scoring.
-    pub stake: u32,
+pub struct Thresholds {
+    /// If a validator has the commission higher than this, then it gets deactivated.
+    pub max_commission: u8,
 
-    /// The coefficient with which a validator's commission fee is considered
-    /// in the performance scoring.
-    pub commission: u32,
+    /// If a validator has `vote_success_rate` lower than this, then it gets deactivated.
+    pub min_vote_success_rate: u8,
 
-    /// The coefficient with which `vote_success_rate` is considered
-    /// in the performance scoring.
-    pub vote_success_rate: u32,
-
-    /// The coefficient with which `block_production_rate` is considered
-    /// in the performance scoring.
-    pub block_production_rate: u32,
+    /// If a validator has `block_production_rate` lower than this, then it gets deactivated.
+    pub min_block_production_rate: u8,
 }
 
-impl Default for Factors {
+impl Default for Thresholds {
     fn default() -> Self {
         Self {
-            stake: std::u32::MAX,
-            commission: std::u32::MAX,
-            vote_success_rate: std::u32::MAX,
-            block_production_rate: std::u32::MAX,
+            max_commission: 100,
+            min_vote_success_rate: 0,
+            min_block_production_rate: 0,
         }
     }
 }
 
-impl Factors {
+impl Thresholds {
     pub fn new(
-        stake: u32,
-        commission: u32,
-        vote_success_rate: u32,
-        block_production_rate: u32,
+        max_commission: u8,
+        min_vote_success_rate: u8,
+        min_block_production_rate: u8,
     ) -> Self {
         Self {
-            stake,
-            commission,
-            vote_success_rate,
-            block_production_rate,
+            max_commission,
+            min_vote_success_rate,
+            min_block_production_rate,
         }
     }
 }
@@ -775,9 +764,9 @@ pub struct Lido {
     /// these metrics.
     pub metrics: Metrics,
 
-    /// Coefficients to linearly combine the performance metrics
-    /// of validators into a single score.
-    pub factors: Factors,
+    /// Metrics of validator's performance such that if a validator's metrics
+    /// do not meet the threshold, then the validator gets deactivated.
+    pub thresholds: Thresholds,
 
     /// Validator list account
     #[serde(serialize_with = "serialize_b58")]
@@ -791,9 +780,6 @@ pub struct Lido {
     /// In the future we plan to make maintenance operations callable by anybody.
     #[serde(serialize_with = "serialize_b58")]
     pub maintainer_list: Pubkey,
-
-    /// Maximum validation commission percentage in [0, 100]
-    pub max_commission_percentage: u8,
 }
 
 impl Lido {
@@ -802,7 +788,7 @@ impl Lido {
     /// Size of a serialized `Lido` struct excluding validators and maintainers.
     ///
     /// To update this, run the tests and replace the value here with the test output.
-    pub const LEN: usize = 434;
+    pub const LEN: usize = 420;
 
     pub fn deserialize_lido(program_id: &Pubkey, lido: &AccountInfo) -> Result<Lido, ProgramError> {
         check_account_owner(lido, program_id)?;
@@ -830,7 +816,7 @@ impl Lido {
         get_instance_packed_len(&lido_instance).unwrap()
     }
 
-    /// Get maximum number of bytes over all Solido owned accounts, including previuos
+    /// Get maximum number of bytes over all Solido owned accounts, including previous
     /// versions, that should be checked to be zero to initialize Solido instance
     ///
     /// This is also done to avoid account confusion that could cause an old,
@@ -1557,10 +1543,9 @@ mod test_lido {
                 developer_account: Pubkey::new_unique(),
             },
             metrics: Metrics::new(),
-            factors: Factors::default(),
+            thresholds: Thresholds::new(5, 0, 0),
             validator_list: Pubkey::new_unique(),
             maintainer_list: Pubkey::new_unique(),
-            max_commission_percentage: 5,
         };
         let mut data = Vec::new();
         BorshSerialize::serialize(&lido, &mut data).unwrap();

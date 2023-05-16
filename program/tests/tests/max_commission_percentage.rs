@@ -18,7 +18,7 @@ async fn test_set_max_commission_percentage() {
 
     let solido = context.get_solido().await.lido;
     assert_eq!(
-        solido.max_commission_percentage,
+        solido.thresholds.max_commission,
         context.max_commission_percentage + 1
     );
 

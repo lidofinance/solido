@@ -28,7 +28,7 @@ use crate::{
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
         AccountType, ExchangeRate, FeeRecipients, Lido, LidoV1, ListEntry, Maintainer,
-        MaintainerList, RewardDistribution, StakeDeposit, Validator, ValidatorList, Factors,
+        MaintainerList, RewardDistribution, StakeDeposit, Thresholds, Validator, ValidatorList,
     },
     token::{Lamports, Rational, StLamports},
     MAXIMUM_UNSTAKE_ACCOUNTS, MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT,
@@ -148,10 +148,9 @@ pub fn process_initialize(
             developer_account: *accounts.developer_account.key,
         },
         metrics: Metrics::new(),
-        factors: Factors::default(),
+        thresholds: Thresholds::default(),
         validator_list: *accounts.validator_list.key,
         maintainer_list: *accounts.maintainer_list.key,
-        max_commission_percentage,
     };
 
     // Confirm that the fee recipients are actually stSOL accounts.
@@ -247,7 +246,7 @@ pub fn process_stake_deposit(
     // the same StakeDeposit transaction, only one of them succeeds.
     let minimum_stake_validator = validators
         .iter()
-        .filter(|&v| v.active && v.vote_success_rate > 0 && v.block_production_rate > 0)
+        .filter(|&v| v.active)
         .min_by_key(|v| v.effective_stake_balance)
         .ok_or(LidoError::NoActiveValidators)?;
     let minimum_stake_pubkey = *minimum_stake_validator.pubkey();
@@ -1131,7 +1130,6 @@ pub fn processor_migrate_to_v2(
         account_type: AccountType::Lido,
         validator_list: *accounts.validator_list.key,
         maintainer_list: *accounts.maintainer_list.key,
-        max_commission_percentage,
         fee_recipients: FeeRecipients {
             treasury_account: lido_v1.fee_recipients.treasury_account,
             developer_account: *accounts.developer_account.key,
@@ -1145,7 +1143,7 @@ pub fn processor_migrate_to_v2(
         mint_authority_bump_seed: lido_v1.mint_authority_bump_seed,
         stake_authority_bump_seed: lido_v1.stake_authority_bump_seed,
         metrics: lido_v1.metrics,
-        factors: Factors::default(),
+        thresholds: Thresholds::default(),
     };
 
     // Confirm that the fee recipients are actually stSOL accounts.

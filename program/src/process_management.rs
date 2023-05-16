@@ -57,7 +57,7 @@ pub fn process_add_validator(program_id: &Pubkey, accounts_raw: &[AccountInfo]) 
     // satisfy the commission limit.
     let _partial_vote_state = PartialVoteState::deserialize(
         accounts.validator_vote_account,
-        lido.max_commission_percentage,
+        lido.thresholds.max_commission,
     )?;
 
     let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
@@ -165,7 +165,7 @@ pub fn process_deactivate_validator_if_commission_exceeds_max(
         let data = accounts.validator_vote_account_to_deactivate.data.borrow();
         let commission = get_vote_account_commission(&data)?;
 
-        if commission <= lido.max_commission_percentage {
+        if commission <= lido.thresholds.max_commission {
             return Ok(());
         }
     } else {
@@ -215,7 +215,7 @@ pub fn process_remove_maintainer(
     Ok(())
 }
 
-/// Sets max validation commission for Lido. If validators exeed the threshold
+/// Sets max validation commission for Lido. If validators exceed the threshold
 /// they will be deactivated by DeactivateValidatorIfCommissionExceedsMax
 pub fn process_set_max_commission_percentage(
     program_id: &Pubkey,
@@ -231,7 +231,7 @@ pub fn process_set_max_commission_percentage(
 
     lido.check_manager(accounts.manager)?;
 
-    lido.max_commission_percentage = max_commission_percentage;
+    lido.thresholds.max_commission = max_commission_percentage;
 
     lido.save(accounts.lido)
 }

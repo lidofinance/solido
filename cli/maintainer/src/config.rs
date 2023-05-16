@@ -481,7 +481,7 @@ cli_opt_struct! {
         #[clap(long, value_name = "address")]
         solido_address: Pubkey,
 
-        /// Max percent of rewards a validator can recieve (validation commission), in range [0, 100]
+        /// Max percent of rewards a validator can receive (validation commission), in range [0, 100]
         #[clap(long, value_name = "fee")]
         max_commission_percentage: u8,
 

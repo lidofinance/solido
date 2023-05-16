@@ -524,7 +524,7 @@ impl fmt::Display for ShowSolidoOutput {
         writeln!(
             f,
             "Max validation commission: {}%",
-            self.solido.max_commission_percentage
+            self.solido.thresholds.max_commission,
         )?;
 
         writeln!(f, "\nMetrics:")?;
@@ -1048,7 +1048,7 @@ pub fn command_deactivate_validator_if_commission_exceeds_max(
             .ok()
             .ok_or_else(|| CliError::new("Validator account data too small"))?;
 
-        if !validator.active || commission <= solido.max_commission_percentage {
+        if !validator.active || commission <= solido.thresholds.max_commission {
             continue;
         }
 
@@ -1076,7 +1076,7 @@ pub fn command_deactivate_validator_if_commission_exceeds_max(
 
     Ok(DeactivateValidatorIfCommissionExceedsMaxOutput {
         entries: violations,
-        max_commission_percentage: solido.max_commission_percentage,
+        max_commission_percentage: solido.thresholds.max_commission,
     })
 }
 
