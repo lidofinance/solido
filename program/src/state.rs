@@ -347,13 +347,6 @@ pub struct Validator {
     /// Controls if a validator is allowed to have new stake deposits.
     /// When removing a validator, this flag should be set to `false`.
     pub active: bool,
-
-    /// Ratio of successful votes to total votes.
-    /// This indicates how well the validator is voting for blocks produced by other validators.
-    pub vote_success_rate: u8,
-
-    /// How many blocks, on average, the validator is producing per minute.
-    pub block_production_rate: u8,
 }
 
 /// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
@@ -492,7 +485,7 @@ impl Validator {
 impl Sealed for Validator {}
 
 impl Pack for Validator {
-    const LEN: usize = 91;
+    const LEN: usize = 89;
     fn pack_into_slice(&self, data: &mut [u8]) {
         let mut data = data;
         BorshSerialize::serialize(&self, &mut data).unwrap();
@@ -513,8 +506,6 @@ impl Default for Validator {
             effective_stake_balance: Lamports(0),
             active: true,
             vote_account_address: Pubkey::default(),
-            vote_success_rate: std::u8::MAX,
-            block_production_rate: std::u8::MAX,
         }
     }
 }
@@ -1950,8 +1941,6 @@ mod test_lido {
             unstake_accounts_balance: Lamports(3333),
             effective_stake_balance: Lamports(3465468),
             active: false,
-            vote_success_rate: 13,
-            block_production_rate: 37,
         };
 
         accounts.entries.push(elem.clone());
