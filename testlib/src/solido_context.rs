@@ -1376,7 +1376,7 @@ impl Context {
         .await
     }
 
-    pub async fn try_deactivate_validator_if_commission_exceeds_max(
+    pub async fn try_deactivate_if_violates(
         &mut self,
         vote_account: Pubkey,
     ) -> transport::Result<()> {
@@ -1385,7 +1385,7 @@ impl Context {
         send_transaction(
             &mut self.context,
             &[
-                lido::instruction::deactivate_validator_if_commission_exceeds_max(
+                lido::instruction::deactivate_if_violates(
                     &id(),
                     &lido::instruction::DeactivateIfViolatesMeta {
                         lido: self.solido.pubkey(),

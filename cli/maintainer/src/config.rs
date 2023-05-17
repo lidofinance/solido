@@ -389,6 +389,18 @@ cli_opt_struct! {
 }
 
 cli_opt_struct! {
+    DeactivateIfViolatesOpts {
+        /// Address of the Solido program.
+        #[clap(long, value_name = "address")]
+        solido_program_id: Pubkey,
+
+        /// Account that stores the data for this Solido instance.
+        #[clap(long, value_name = "address")]
+        solido_address: Pubkey,
+    }
+}
+
+cli_opt_struct! {
     AddRemoveMaintainerOpts {
         /// Address of the Solido program.
         #[clap(long, value_name = "address")]
@@ -460,18 +472,6 @@ cli_opt_struct! {
 }
 
 cli_opt_struct! {
-    DeactivateValidatorIfCommissionExceedsMaxOpts {
-        /// Address of the Solido program.
-        #[clap(long, value_name = "address")]
-        solido_program_id: Pubkey,
-
-        /// Account that stores the data for this Solido instance.
-        #[clap(long, value_name = "address")]
-        solido_address: Pubkey,
-    }
-}
-
-cli_opt_struct! {
     SetMaxValidationCommissionOpts {
         /// Address of the Solido program.
         #[clap(long, value_name = "address")]
@@ -531,7 +531,7 @@ impl CreateMultisigOpts {
 }
 
 cli_opt_struct! {
-ProposeUpgradeOpts {
+    ProposeUpgradeOpts {
         /// The multisig account whose owners should vote for this proposal.
         #[clap(long, value_name = "address")]
         multisig_address: Pubkey,

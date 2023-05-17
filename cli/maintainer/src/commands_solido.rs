@@ -37,9 +37,8 @@ use crate::{
 use crate::{
     config::{
         AddRemoveMaintainerOpts, AddValidatorOpts, CreateSolidoOpts, CreateV2AccountsOpts,
-        DeactivateValidatorIfCommissionExceedsMaxOpts, DeactivateValidatorOpts, DepositOpts,
-        MigrateStateToV2Opts, SetMaxValidationCommissionOpts, ShowSolidoAuthoritiesOpts,
-        ShowSolidoOpts, WithdrawOpts,
+        DeactivateIfViolatesOpts, DeactivateValidatorOpts, DepositOpts, MigrateStateToV2Opts,
+        SetMaxValidationCommissionOpts, ShowSolidoAuthoritiesOpts, ShowSolidoOpts, WithdrawOpts,
     },
     get_signer_from_path,
 };
@@ -994,7 +993,7 @@ pub fn command_withdraw(
 }
 
 #[derive(Serialize)]
-pub struct DeactivateValidatorIfCommissionExceedsMaxOutput {
+pub struct DeactivateIfViolatesOutput {
     // List of validators that exceeded max commission
     entries: Vec<ValidatorViolationInfo>,
     max_commission_percentage: u8,
@@ -1007,7 +1006,7 @@ struct ValidatorViolationInfo {
     pub commission: u8,
 }
 
-impl fmt::Display for DeactivateValidatorIfCommissionExceedsMaxOutput {
+impl fmt::Display for DeactivateIfViolatesOutput {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(
             f,
@@ -1027,10 +1026,10 @@ impl fmt::Display for DeactivateValidatorIfCommissionExceedsMaxOutput {
 }
 
 /// CLI entry point to punish validator for commission violation.
-pub fn command_deactivate_validator_if_commission_exceeds_max(
+pub fn command_deactivate_if_violates(
     config: &mut SnapshotConfig,
-    opts: &DeactivateValidatorIfCommissionExceedsMaxOpts,
-) -> solido_cli_common::Result<DeactivateValidatorIfCommissionExceedsMaxOutput> {
+    opts: &DeactivateIfViolatesOpts,
+) -> solido_cli_common::Result<DeactivateIfViolatesOutput> {
     let solido = config.client.get_solido(opts.solido_address())?;
 
     let validators = config
@@ -1050,7 +1049,7 @@ pub fn command_deactivate_validator_if_commission_exceeds_max(
             continue;
         }
 
-        let instruction = lido::instruction::deactivate_validator_if_commission_exceeds_max(
+        let instruction = lido::instruction::deactivate_if_violates(
             opts.solido_program_id(),
             &lido::instruction::DeactivateIfViolatesMeta {
                 lido: *opts.solido_address(),
@@ -1068,11 +1067,11 @@ pub fn command_deactivate_validator_if_commission_exceeds_max(
 
     let signers: Vec<&dyn Signer> = vec![];
     // Due to the fact that Solana has a limit on number of instructions in a transaction
-    // this can fall if there would be alot of misbehaved validators each
+    // this can fall if there would be a lot of misbehaved validators each
     // exceeding `max_commission_percentage`. But it is a very improbable scenario.
     config.sign_and_send_transaction(&instructions, &signers)?;
 
-    Ok(DeactivateValidatorIfCommissionExceedsMaxOutput {
+    Ok(DeactivateIfViolatesOutput {
         entries: violations,
         max_commission_percentage: solido.thresholds.max_commission,
     })

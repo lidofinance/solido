@@ -20,10 +20,10 @@ use solido_cli_common::snapshot::{Config, OutputMode, SnapshotClient};
 use crate::commands_multisig::MultisigOpts;
 use crate::commands_solido::{
     command_add_maintainer, command_add_validator, command_create_solido,
-    command_create_v2_accounts, command_deactivate_validator,
-    command_deactivate_validator_if_commission_exceeds_max, command_deposit,
-    command_migrate_state_to_v2, command_remove_maintainer, command_set_max_commission_percentage,
-    command_show_solido, command_show_solido_authorities, command_withdraw,
+    command_create_v2_accounts, command_deactivate_if_violates, command_deactivate_validator,
+    command_deposit, command_migrate_state_to_v2, command_remove_maintainer,
+    command_set_max_commission_percentage, command_show_solido, command_show_solido_authorities,
+    command_withdraw,
 };
 use crate::config::*;
 
@@ -164,8 +164,10 @@ REWARDS
     DeactivateValidator(DeactivateValidatorOpts),
 
     /// Deactivates a validator and initiates the removal process if
-    /// validator exceeds maximum validation commission. Requires no permission.
-    DeactivateValidatorIfCommissionExceedsMax(DeactivateValidatorIfCommissionExceedsMaxOpts),
+    /// validator exceeds maximum validation commission or any other performance metric
+    /// as per the thresholds.
+    /// Requires no permission.
+    DeactivateIfViolates(DeactivateIfViolatesOpts),
 
     /// Adds a maintainer to the Solido instance.
     AddMaintainer(AddRemoveMaintainerOpts),
@@ -314,10 +316,9 @@ fn main() {
             let output = result.ok_or_abort_with("Failed to deactivate validator.");
             print_output(output_mode, &output);
         }
-        SubCommand::DeactivateValidatorIfCommissionExceedsMax(cmd_opts) => {
-            let result = config.with_snapshot(|config| {
-                command_deactivate_validator_if_commission_exceeds_max(config, &cmd_opts)
-            });
+        SubCommand::DeactivateIfViolates(cmd_opts) => {
+            let result =
+                config.with_snapshot(|config| command_deactivate_if_violates(config, &cmd_opts));
             let output = result.ok_or_abort_with("Failed to check max commission violation.");
             print_output(output_mode, &output);
         }
@@ -384,7 +385,7 @@ fn merge_with_config_and_environment(
         SubCommand::DeactivateValidator(opts) => {
             opts.merge_with_config_and_environment(config_file)
         }
-        SubCommand::DeactivateValidatorIfCommissionExceedsMax(opts) => {
+        SubCommand::DeactivateIfViolates(opts) => {
             opts.merge_with_config_and_environment(config_file)
         }
         SubCommand::AddMaintainer(opts) | SubCommand::RemoveMaintainer(opts) => {

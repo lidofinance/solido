@@ -1000,7 +1000,7 @@ accounts_struct! {
     }
 }
 
-pub fn deactivate_validator_if_commission_exceeds_max(
+pub fn deactivate_if_violates(
     program_id: &Pubkey,
     accounts: &DeactivateIfViolatesMeta,
     validator_index: u32,

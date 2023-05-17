@@ -61,8 +61,8 @@ struct MaintenanceMetrics {
     /// Number of times we performed `RemoveValidator`.
     transactions_remove_validator: u64,
 
-    /// Number of times we performed `DeactivateValidatorIfCommissionExceedsMax`.
-    transactions_deactivate_validator_if_commission_exceeds_max: u64,
+    /// Number of times we performed `DeactivateIfViolates`.
+    transactions_deactivate_if_violates: u64,
 
     /// Number of times we performed `Unstake` on an active validator for balancing purposes.
     transactions_unstake_from_active_validator: u64,
@@ -108,10 +108,10 @@ impl MaintenanceMetrics {
                         .with_label("operation", "RemoveValidator".to_string()),
                     Metric::new(self.transactions_unstake_from_active_validator)
                         .with_label("operation", "UnstakeFromActiveValidator".to_string()),
-                    Metric::new(self.transactions_deactivate_validator_if_commission_exceeds_max)
+                    Metric::new(self.transactions_deactivate_if_violates)
                         .with_label(
                             "operation",
-                            "DeactivateValidatorIfCommissionExceedsMax".to_string(),
+                            "DeactivateIfViolates".to_string(),
                         ),
                 ],
             },
@@ -134,16 +134,20 @@ impl MaintenanceMetrics {
             MaintenanceOutput::UpdateStakeAccountBalance { .. } => {
                 self.transactions_update_stake_account_balance += 1;
             }
-            MaintenanceOutput::MergeStake { .. } => self.transactions_merge_stake += 1,
-            MaintenanceOutput::UnstakeFromInactiveValidator { .. } => {
-                self.transactions_unstake_from_inactive_validator += 1
+            MaintenanceOutput::MergeStake { .. } => {
+                self.transactions_merge_stake += 1;
             }
-            MaintenanceOutput::RemoveValidator { .. } => self.transactions_remove_validator += 1,
+            MaintenanceOutput::UnstakeFromInactiveValidator { .. } => {
+                self.transactions_unstake_from_inactive_validator += 1;
+            }
+            MaintenanceOutput::RemoveValidator { .. } => {
+                self.transactions_remove_validator += 1;
+            }
             MaintenanceOutput::DeactivateIfViolates { .. } => {
-                self.transactions_deactivate_validator_if_commission_exceeds_max += 1
+                self.transactions_deactivate_if_violates += 1;
             }
             MaintenanceOutput::UnstakeFromActiveValidator { .. } => {
-                self.transactions_unstake_from_active_validator += 1
+                self.transactions_unstake_from_active_validator += 1;
             }
         }
     }
@@ -305,7 +309,7 @@ impl<'a, 'b> Daemon<'a, 'b> {
             transactions_merge_stake: 0,
             transactions_unstake_from_inactive_validator: 0,
             transactions_remove_validator: 0,
-            transactions_deactivate_validator_if_commission_exceeds_max: 0,
+            transactions_deactivate_if_violates: 0,
             transactions_unstake_from_active_validator: 0,
         };
         Daemon {

@@ -216,7 +216,7 @@ pub fn process_remove_maintainer(
 }
 
 /// Sets max validation commission for Lido. If validators exceed the threshold
-/// they will be deactivated by DeactivateValidatorIfCommissionExceedsMax
+/// they will be deactivated by DeactivateIfViolates
 pub fn process_set_max_commission_percentage(
     program_id: &Pubkey,
     max_commission_percentage: u8,

@@ -22,7 +22,7 @@ async fn test_set_max_commission_percentage() {
         context.max_commission_percentage + 1
     );
 
-    let result = context.try_deactivate_validator_if_commission_exceeds_max(*validator.pubkey());
+    let result = context.try_deactivate_if_violates(*validator.pubkey());
     assert_eq!(result.await.is_ok(), true);
 
     // check validator is not deactivated
@@ -39,7 +39,7 @@ async fn test_set_max_commission_percentage() {
     let result = context.try_set_max_commission_percentage(context.max_commission_percentage - 1);
     assert_eq!(result.await.is_ok(), true);
 
-    let result = context.try_deactivate_validator_if_commission_exceeds_max(*validator.pubkey());
+    let result = context.try_deactivate_if_violates(*validator.pubkey());
     assert_eq!(result.await.is_ok(), true);
 
     // check validator is deactivated
@@ -67,7 +67,7 @@ async fn test_close_vote_account() {
     let result = context.try_close_vote_account(&vote_account, &withdraw_authority);
     assert_eq!(result.await.is_ok(), true);
 
-    let result = context.try_deactivate_validator_if_commission_exceeds_max(*validator.pubkey());
+    let result = context.try_deactivate_if_violates(*validator.pubkey());
     assert_eq!(result.await.is_ok(), true);
 
     let validator = &context.get_solido().await.validators.entries[0];
