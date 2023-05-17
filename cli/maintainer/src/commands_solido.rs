@@ -435,18 +435,13 @@ pub struct ShowSolidoOutput {
     #[serde(serialize_with = "serialize_b58")]
     pub mint_authority: Pubkey,
 
-    /// Identity account address for all validators in the same order as `solido.validators`.
-    pub validator_identities: Vec<Pubkey>,
+    /// Validator structure as the program sees it, along with the validator's
+    /// identity account address, their info, and their commission percentage.
+    pub validators: Vec<(Validator, Pubkey, ValidatorInfo, u8)>,
+    pub validators_max: u32,
 
-    /// Contains validator info in the same order as `solido.validators`.
-    pub validator_infos: Vec<ValidatorInfo>,
-
-    /// Contains validator fees in the same order as `solido.validators`.
-    pub validator_commission_percentages: Vec<u8>,
-
-    pub validators: AccountList<Validator>,
-
-    pub maintainers: AccountList<Maintainer>,
+    pub maintainers: Vec<Maintainer>,
+    pub maintainers_max: u32,
 
     pub reserve_account_balance: Lamports,
 }
@@ -582,16 +577,9 @@ impl fmt::Display for ShowSolidoOutput {
             f,
             "Validators: {} in use out of {} that the instance can support",
             self.validators.len(),
-            self.validators.header.max_entries
+            self.validators_max,
         )?;
-        for (((pe, identity), info), commission) in self
-            .validators
-            .entries
-            .iter()
-            .zip(&self.validator_identities)
-            .zip(&self.validator_infos)
-            .zip(&self.validator_commission_percentages)
-        {
+        for (v, identity, info, commission) in self.validators.iter() {
             writeln!(
                 f,
                 "\n  - \
@@ -609,25 +597,26 @@ impl fmt::Display for ShowSolidoOutput {
                     Some(username) => &username[..],
                     None => "not set",
                 },
-                pe.pubkey(),
+                v.pubkey(),
                 identity,
                 commission,
-                pe.active,
-                pe.stake_accounts_balance,
-                pe.effective_stake_balance,
-                pe.unstake_accounts_balance,
+                v.active,
+                v.block_production_rate,
+                v.stake_accounts_balance,
+                v.effective_stake_balance,
+                v.unstake_accounts_balance,
             )?;
 
             writeln!(f, "    Stake accounts (seed, address):")?;
-            if pe.stake_seeds.begin == pe.stake_seeds.end {
+            if v.stake_seeds.begin == v.stake_seeds.end {
                 writeln!(f, "      This validator has no stake accounts.")?;
             };
-            for seed in &pe.stake_seeds {
+            for seed in &v.stake_seeds {
                 writeln!(
                     f,
                     "      - {}: {}",
                     seed,
-                    pe.find_stake_account_address(
+                    v.find_stake_account_address(
                         &self.solido_program_id,
                         &self.solido_address,
                         seed,
@@ -638,15 +627,15 @@ impl fmt::Display for ShowSolidoOutput {
             }
 
             writeln!(f, "    Unstake accounts (seed, address):")?;
-            if pe.unstake_seeds.begin == pe.unstake_seeds.end {
+            if v.unstake_seeds.begin == v.unstake_seeds.end {
                 writeln!(f, "      This validator has no unstake accounts.")?;
             };
-            for seed in &pe.unstake_seeds {
+            for seed in &v.unstake_seeds {
                 writeln!(
                     f,
                     "      - {}: {}",
                     seed,
-                    pe.find_stake_account_address(
+                    v.find_stake_account_address(
                         &self.solido_program_id,
                         &self.solido_address,
                         seed,
@@ -661,9 +650,9 @@ impl fmt::Display for ShowSolidoOutput {
             f,
             "Maintainers: {} in use out of {} that the instance can support\n",
             self.maintainers.len(),
-            self.maintainers.header.max_entries
+            self.maintainers_max,
         )?;
-        for e in &self.maintainers.entries {
+        for e in &self.maintainers {
             writeln!(f, "  - {}", e.pubkey())?;
         }
         Ok(())
@@ -687,14 +676,18 @@ pub fn command_show_solido(
     let validators = config
         .client
         .get_account_list::<Validator>(&lido.validator_list)?;
+    let validators_max = validators.header.max_entries;
+    let validators = validators.entries;
     let maintainers = config
         .client
         .get_account_list::<Maintainer>(&lido.maintainer_list)?;
+    let maintainers_max = maintainers.header.max_entries;
+    let maintainers = maintainers.entries;
 
     let mut validator_identities = Vec::new();
     let mut validator_infos = Vec::new();
     let mut validator_commission_percentages = Vec::new();
-    for validator in validators.entries.iter() {
+    for validator in validators.iter() {
         let vote_state = config.client.get_vote_account(validator.pubkey())?;
         validator_identities.push(vote_state.node_pubkey);
         let info = config.client.get_validator_info(&vote_state.node_pubkey)?;
@@ -705,19 +698,25 @@ pub fn command_show_solido(
             .ok_or_else(|| CliError::new("Validator account data too small"))?;
         validator_commission_percentages.push(commission);
     }
+    let validators = validators
+        .into_iter()
+        .zip(validator_identities.into_iter())
+        .zip(validator_infos.into_iter())
+        .zip(validator_commission_percentages.into_iter())
+        .map(|(((v, identity), info), commission)| (v, identity, info, commission))
+        .collect();
 
     Ok(ShowSolidoOutput {
         solido_program_id: *opts.solido_program_id(),
         solido_address: *opts.solido_address(),
         solido: lido,
-        validator_identities,
-        validator_infos,
-        validator_commission_percentages,
         reserve_account,
         stake_authority,
         mint_authority,
         validators,
+        validators_max,
         maintainers,
+        maintainers_max,
         reserve_account_balance: Lamports(reserve_account_balance),
     })
 }
