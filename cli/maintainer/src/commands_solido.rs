@@ -601,7 +601,6 @@ impl fmt::Display for ShowSolidoOutput {
                 identity,
                 commission,
                 v.active,
-                v.block_production_rate,
                 v.stake_accounts_balance,
                 v.effective_stake_balance,
                 v.unstake_accounts_balance,

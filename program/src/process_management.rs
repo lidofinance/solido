@@ -14,7 +14,7 @@ use crate::{
     error::LidoError,
     instruction::{
         AddMaintainerInfoV2, AddValidatorInfoV2, ChangeRewardDistributionInfo,
-        DeactivateValidatorIfCommissionExceedsMaxInfo, DeactivateValidatorInfoV2, MergeStakeInfoV2,
+        DeactivateIfViolatesInfo, DeactivateValidatorInfoV2, MergeStakeInfoV2,
         RemoveMaintainerInfoV2, RemoveValidatorInfoV2, SetMaxValidationCommissionInfo,
     },
     state::{ListEntry, Maintainer, RewardDistribution, Validator},
@@ -132,17 +132,17 @@ pub fn process_deactivate_validator(
     Ok(())
 }
 
-/// Mark validator inactive if it's commission is bigger then max
-/// allowed or if it's vote account is closed. It is permissionless.
+/// Mark a validator inactive if any of their performance metrics exceeds the
+/// allowed range of values.
 ///
 /// This prevents new funds from being staked with this validator, and enables
-/// removing the validator once no stake is delegated to it any more.
-pub fn process_deactivate_validator_if_commission_exceeds_max(
+/// removing the validator once no stake is delegated to it anymore.
+pub fn process_deactivate_if_violates(
     program_id: &Pubkey,
     validator_index: u32,
     accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
-    let accounts = DeactivateValidatorIfCommissionExceedsMaxInfo::try_from_slice(accounts_raw)?;
+    let accounts = DeactivateIfViolatesInfo::try_from_slice(accounts_raw)?;
     let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
 
     let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();

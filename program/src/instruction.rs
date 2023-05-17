@@ -107,15 +107,15 @@ pub enum LidoInstruction {
     /// or if vote account is closed, then deactivate it
     ///
     /// Requires no permission
-    DeactivateValidatorIfCommissionExceedsMax {
+    DeactivateIfViolates {
         // Index of a validator in validator list
         #[allow(dead_code)] // but it's not
         validator_index: u32,
     },
 
     /// Set max_commission_percentage to control validator's fees.
-    /// If validators exeed the threshold they will be deactivated by
-    /// DeactivateValidatorIfCommissionExceedsMax.
+    /// If validators exceed the threshold they will be deactivated by
+    /// DeactivateIfViolates.
     ///
     /// Requires the manager to sign.
     SetMaxValidationCommission {
@@ -983,8 +983,8 @@ pub fn update_stake_account_balance(
 }
 
 accounts_struct! {
-    DeactivateValidatorIfCommissionExceedsMaxMeta,
-    DeactivateValidatorIfCommissionExceedsMaxInfo {
+    DeactivateIfViolatesMeta,
+    DeactivateIfViolatesInfo {
         pub lido {
             is_signer: false,
             is_writable: false,
@@ -1002,14 +1002,13 @@ accounts_struct! {
 
 pub fn deactivate_validator_if_commission_exceeds_max(
     program_id: &Pubkey,
-    accounts: &DeactivateValidatorIfCommissionExceedsMaxMeta,
+    accounts: &DeactivateIfViolatesMeta,
     validator_index: u32,
 ) -> Instruction {
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),
-        data: LidoInstruction::DeactivateValidatorIfCommissionExceedsMax { validator_index }
-            .to_vec(),
+        data: LidoInstruction::DeactivateIfViolates { validator_index }.to_vec(),
     }
 }
 

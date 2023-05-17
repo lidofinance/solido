@@ -21,7 +21,7 @@ use crate::{
     metrics::Metrics,
     process_management::{
         process_add_maintainer, process_add_validator, process_change_reward_distribution,
-        process_deactivate_validator, process_deactivate_validator_if_commission_exceeds_max,
+        process_deactivate_validator, process_deactivate_if_violates,
         process_merge_stake, process_remove_maintainer, process_remove_validator,
         process_set_max_commission_percentage,
     },
@@ -615,25 +615,12 @@ pub fn process_update_exchange_rate(
 }
 
 pub fn process_update_block_production_rate(
-    program_id: &Pubkey,
-    raw_accounts: &[AccountInfo],
-    validator_index: u32,
-    block_production_rate: u8,
+    _program_id: &Pubkey,
+    _raw_accounts: &[AccountInfo],
+    _validator_index: u32,
+    _block_production_rate: u8,
 ) -> ProgramResult {
-    let accounts = UpdateBlockProductionRateAccountsInfo::try_from_slice(raw_accounts)?;
-    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
-
-    let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
-    let mut validators = lido.deserialize_account_list_info::<Validator>(
-        program_id,
-        accounts.validator_list,
-        validator_list_data,
-    )?;
-
-    let validator = validators.get_mut(validator_index, accounts.validator_vote_account.key)?;
-    validator.block_production_rate = block_production_rate;
-
-    lido.save(accounts.lido)
+    unimplemented!("no no")
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -1228,8 +1215,8 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::MergeStakeV2 { validator_index } => {
             process_merge_stake(program_id, validator_index, accounts)
         }
-        LidoInstruction::DeactivateValidatorIfCommissionExceedsMax { validator_index } => {
-            process_deactivate_validator_if_commission_exceeds_max(
+        LidoInstruction::DeactivateIfViolates { validator_index } => {
+            process_deactivate_if_violates(
                 program_id,
                 validator_index,
                 accounts,

@@ -1387,7 +1387,7 @@ impl Context {
             &[
                 lido::instruction::deactivate_validator_if_commission_exceeds_max(
                     &id(),
-                    &lido::instruction::DeactivateValidatorIfCommissionExceedsMaxMeta {
+                    &lido::instruction::DeactivateIfViolatesMeta {
                         lido: self.solido.pubkey(),
                         validator_vote_account_to_deactivate: vote_account,
                         validator_list: self.validator_list.pubkey(),
