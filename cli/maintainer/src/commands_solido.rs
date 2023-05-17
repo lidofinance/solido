@@ -1052,7 +1052,7 @@ pub fn command_deactivate_validator_if_commission_exceeds_max(
 
         let instruction = lido::instruction::deactivate_validator_if_commission_exceeds_max(
             opts.solido_program_id(),
-            &lido::instruction::DeactivateValidatorIfCommissionExceedsMaxMeta {
+            &lido::instruction::DeactivateIfViolatesMeta {
                 lido: *opts.solido_address(),
                 validator_vote_account_to_deactivate: *validator.pubkey(),
                 validator_list: solido.validator_list,

@@ -139,7 +139,7 @@ impl MaintenanceMetrics {
                 self.transactions_unstake_from_inactive_validator += 1
             }
             MaintenanceOutput::RemoveValidator { .. } => self.transactions_remove_validator += 1,
-            MaintenanceOutput::DeactivateValidatorIfCommissionExceedsMax { .. } => {
+            MaintenanceOutput::DeactivateIfViolates { .. } => {
                 self.transactions_deactivate_validator_if_commission_exceeds_max += 1
             }
             MaintenanceOutput::UnstakeFromActiveValidator { .. } => {

@@ -104,7 +104,7 @@ pub enum MaintenanceOutput {
         #[serde(serialize_with = "serialize_b58")]
         validator_vote_account: Pubkey,
     },
-    DeactivateValidatorIfCommissionExceedsMax {
+    DeactivateIfViolates {
         #[serde(serialize_with = "serialize_b58")]
         validator_vote_account: Pubkey,
     },
@@ -224,7 +224,7 @@ impl fmt::Display for MaintenanceOutput {
                 writeln!(f, "Remove validator")?;
                 writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
             }
-            MaintenanceOutput::DeactivateValidatorIfCommissionExceedsMax {
+            MaintenanceOutput::DeactivateIfViolates {
                 validator_vote_account,
             } => {
                 writeln!(f, "Check max commission violation.")?;
@@ -773,13 +773,13 @@ impl SolidoState {
                 // Vote account is closed
             }
 
-            let task = MaintenanceOutput::DeactivateValidatorIfCommissionExceedsMax {
+            let task = MaintenanceOutput::DeactivateIfViolates {
                 validator_vote_account: *validator.pubkey(),
             };
 
             let instruction = lido::instruction::deactivate_validator_if_commission_exceeds_max(
                 &self.solido_program_id,
-                &lido::instruction::DeactivateValidatorIfCommissionExceedsMaxMeta {
+                &lido::instruction::DeactivateIfViolatesMeta {
                     lido: self.solido_address,
                     validator_vote_account_to_deactivate: *validator.pubkey(),
                     validator_list: self.solido.validator_list,

@@ -9,7 +9,7 @@ use crate::{
     error::LidoError,
     instruction::{
         DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV2Info,
-        StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateBlockProductionRateAccountsInfo,
+        StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2,
         UpdateExchangeRateAccountsInfoV2, UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
     },
     logic::{
