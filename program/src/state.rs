@@ -48,6 +48,7 @@ pub enum AccountType {
     Uninitialized,
     Lido,
     Validator,
+    ValidatorPerf,
     Maintainer,
 }
 
@@ -74,6 +75,7 @@ pub struct AccountList<T> {
 }
 
 pub type ValidatorList = AccountList<Validator>;
+pub type ValidatorPerfList = AccountList<ValidatorPerf>;
 pub type MaintainerList = AccountList<Maintainer>;
 
 /// Helper type to deserialize just the start of AccountList
@@ -356,6 +358,26 @@ pub struct Validator {
 /// unsafe pointer cast, which means that this structure cannot have any
 /// undeclared alignment-padding in its representation.
 #[repr(C)]
+#[derive(Clone, Debug, Eq, PartialEq, BorshDeserialize, BorshSerialize, BorshSchema, Serialize)]
+pub struct ValidatorPerf {
+    /// The associated validator's vote account address.
+    /// It might not be present in the validator list.
+    /// Do not reorder this field, it should be first in the struct
+    #[serde(serialize_with = "serialize_b58")]
+    #[serde(rename = "pubkey")]
+    pub validator_vote_account_address: Pubkey,
+
+    /// The number of slots the validator has produced in the last epoch.
+    pub block_production_rate: u64,
+}
+
+/// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
+/// THERE'S AN EXTREMELY GOOD REASON.
+///
+/// To save on BPF instructions, the serialized bytes are reinterpreted with an
+/// unsafe pointer cast, which means that this structure cannot have any
+/// undeclared alignment-padding in its representation.
+#[repr(C)]
 #[derive(
     Clone, Default, Debug, Eq, PartialEq, BorshDeserialize, BorshSerialize, BorshSchema, Serialize,
 )]
@@ -522,6 +544,46 @@ impl ListEntry for Validator {
 
     fn pubkey(&self) -> &Pubkey {
         &self.vote_account_address
+    }
+}
+
+impl ValidatorPerf {}
+
+impl Sealed for ValidatorPerf {}
+
+impl Pack for ValidatorPerf {
+    const LEN: usize = 8;
+    fn pack_into_slice(&self, data: &mut [u8]) {
+        let mut data = data;
+        BorshSerialize::serialize(&self, &mut data).unwrap();
+    }
+    fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+        let unpacked = Self::try_from_slice(src)?;
+        Ok(unpacked)
+    }
+}
+
+impl Default for ValidatorPerf {
+    fn default() -> Self {
+        ValidatorPerf {
+            validator_vote_account_address: Pubkey::default(),
+            block_production_rate: 0,
+        }
+    }
+}
+
+impl ListEntry for ValidatorPerf {
+    const TYPE: AccountType = AccountType::ValidatorPerf;
+
+    fn new(validator_vote_account_address: Pubkey) -> Self {
+        Self {
+            validator_vote_account_address,
+            ..Default::default()
+        }
+    }
+
+    fn pubkey(&self) -> &Pubkey {
+        &self.validator_vote_account_address
     }
 }
 

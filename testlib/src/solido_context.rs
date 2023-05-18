@@ -34,7 +34,7 @@ use lido::{error::LidoError, instruction, RESERVE_ACCOUNT, STAKE_AUTHORITY};
 use lido::{
     state::{
         AccountList, FeeRecipients, Lido, ListEntry, Maintainer, RewardDistribution, StakeDeposit,
-        Thresholds, Validator,
+        Thresholds, Validator, ValidatorPerf,
     },
     MINT_AUTHORITY,
 };
@@ -266,7 +266,7 @@ impl Context {
 
         let rent_reserve = rent.minimum_balance(0);
         let validator_list_size = AccountList::<Validator>::required_bytes(max_validators);
-        let validator_perf_list_size = AccountList::<Validator>::required_bytes(max_validators);
+        let validator_perf_list_size = AccountList::<ValidatorPerf>::required_bytes(max_validators);
         let rent_validator_perf_list = rent.minimum_balance(validator_perf_list_size);
         let rent_validator_list = rent.minimum_balance(validator_list_size);
 
