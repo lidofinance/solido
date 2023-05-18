@@ -17,7 +17,7 @@ use solana_program::{
 use crate::{
     accounts_struct, accounts_struct_meta,
     error::LidoError,
-    state::RewardDistribution,
+    state::{RewardDistribution, Thresholds},
     token::{Lamports, StLamports},
 };
 
@@ -28,11 +28,11 @@ pub enum LidoInstruction {
         #[allow(dead_code)] // but it's not
         reward_distribution: RewardDistribution,
         #[allow(dead_code)] // but it's not
+        thresholds: Thresholds,
+        #[allow(dead_code)] // but it's not
         max_validators: u32,
         #[allow(dead_code)] // but it's not
         max_maintainers: u32,
-        #[allow(dead_code)] // but it's not
-        max_commission_percentage: u8,
     },
 
     /// Deposit a given amount of SOL.
@@ -279,16 +279,16 @@ accounts_struct! {
 pub fn initialize(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
+    thresholds: Thresholds,
     max_validators: u32,
     max_maintainers: u32,
-    max_commission_percentage: u8,
     accounts: &InitializeAccountsMeta,
 ) -> Instruction {
     let data = LidoInstruction::Initialize {
         reward_distribution,
+        thresholds,
         max_validators,
         max_maintainers,
-        max_commission_percentage,
     };
     Instruction {
         program_id: *program_id,

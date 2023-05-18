@@ -9,8 +9,8 @@ use crate::{
     error::LidoError,
     instruction::{
         DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV2Info,
-        StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2,
-        UpdateExchangeRateAccountsInfoV2, UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
+        StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateExchangeRateAccountsInfoV2,
+        UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
     },
     logic::{
         burn_st_sol, check_account_data, check_account_owner, check_mint, check_rent_exempt,
@@ -21,9 +21,8 @@ use crate::{
     metrics::Metrics,
     process_management::{
         process_add_maintainer, process_add_validator, process_change_reward_distribution,
-        process_deactivate_validator, process_deactivate_if_violates,
-        process_merge_stake, process_remove_maintainer, process_remove_validator,
-        process_set_max_commission_percentage,
+        process_deactivate_if_violates, process_deactivate_validator, process_merge_stake,
+        process_remove_maintainer, process_remove_validator, process_set_max_commission_percentage,
     },
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
@@ -58,9 +57,9 @@ use {
 pub fn process_initialize(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
+    thresholds: Thresholds,
     max_validators: u32,
     max_maintainers: u32,
-    max_commission_percentage: u8,
     accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
     let accounts = InitializeAccountsInfo::try_from_slice(accounts_raw)?;
@@ -111,7 +110,7 @@ pub fn process_initialize(
     );
     if &reserve_account_pda != accounts.reserve_account.key {
         msg!(
-            "Resrve account {} is incorrect, should be {}",
+            "Reserve account {} is incorrect, should be {}",
             accounts.reserve_account.key,
             reserve_account_pda
         );
@@ -128,7 +127,7 @@ pub fn process_initialize(
     // Check if the token has no minted tokens and right mint authority.
     check_mint(rent, accounts.st_sol_mint, &mint_authority)?;
 
-    if max_commission_percentage > 100 {
+    if thresholds.max_commission > 100 {
         return Err(LidoError::ValidationCommissionOutOfBounds.into());
     }
 
@@ -1147,15 +1146,15 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
     match instruction {
         LidoInstruction::Initialize {
             reward_distribution,
+            thresholds,
             max_validators,
             max_maintainers,
-            max_commission_percentage,
         } => process_initialize(
             program_id,
             reward_distribution,
+            thresholds,
             max_validators,
             max_maintainers,
-            max_commission_percentage,
             accounts,
         ),
         LidoInstruction::Deposit { amount } => process_deposit(program_id, amount, accounts),
@@ -1216,11 +1215,7 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
             process_merge_stake(program_id, validator_index, accounts)
         }
         LidoInstruction::DeactivateIfViolates { validator_index } => {
-            process_deactivate_if_violates(
-                program_id,
-                validator_index,
-                accounts,
-            )
+            process_deactivate_if_violates(program_id, validator_index, accounts)
         }
         LidoInstruction::SetMaxValidationCommission {
             max_commission_percentage,

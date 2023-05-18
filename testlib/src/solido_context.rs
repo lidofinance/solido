@@ -34,7 +34,7 @@ use lido::{error::LidoError, instruction, RESERVE_ACCOUNT, STAKE_AUTHORITY};
 use lido::{
     state::{
         AccountList, FeeRecipients, Lido, ListEntry, Maintainer, RewardDistribution, StakeDeposit,
-        Validator,
+        Thresholds, Validator,
     },
     MINT_AUTHORITY,
 };
@@ -96,7 +96,7 @@ pub struct Context {
     pub stake_authority: Pubkey,
     pub mint_authority: Pubkey,
 
-    pub max_commission_percentage: u8,
+    pub thresholds: Thresholds,
 }
 
 pub struct ValidatorAccounts {
@@ -245,7 +245,7 @@ impl Context {
             stake_authority,
             mint_authority,
             deterministic_keypair,
-            max_commission_percentage: 5,
+            thresholds: Thresholds::new(5, 0, 0),
         };
 
         result.st_sol_mint = result.create_mint(result.mint_authority).await;
@@ -303,9 +303,9 @@ impl Context {
                 instruction::initialize(
                     &id(),
                     result.reward_distribution.clone(),
+                    result.thresholds.clone(),
                     max_validators,
                     max_maintainers,
-                    result.max_commission_percentage,
                     &instruction::InitializeAccountsMeta {
                         lido: result.solido.pubkey(),
                         manager: result.manager.pubkey(),
@@ -730,7 +730,7 @@ impl Context {
             .create_vote_account(
                 &node_account,
                 withdraw_authority.pubkey(),
-                self.max_commission_percentage,
+                self.thresholds.max_commission,
             )
             .await;
 
@@ -1388,17 +1388,15 @@ impl Context {
         let validator_index = solido.validators.position(&vote_account).unwrap();
         send_transaction(
             &mut self.context,
-            &[
-                lido::instruction::deactivate_if_violates(
-                    &id(),
-                    &lido::instruction::DeactivateIfViolatesMeta {
-                        lido: self.solido.pubkey(),
-                        validator_vote_account_to_deactivate: vote_account,
-                        validator_list: self.validator_list.pubkey(),
-                    },
-                    validator_index,
-                ),
-            ],
+            &[lido::instruction::deactivate_if_violates(
+                &id(),
+                &lido::instruction::DeactivateIfViolatesMeta {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_deactivate: vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                },
+                validator_index,
+            )],
             vec![],
         )
         .await
