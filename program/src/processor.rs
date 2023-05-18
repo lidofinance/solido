@@ -67,6 +67,7 @@ pub fn process_initialize(
     check_rent_exempt(rent, accounts.lido, "Solido account")?;
     check_rent_exempt(rent, accounts.reserve_account, "Reserve account")?;
     check_rent_exempt(rent, accounts.validator_list, "Validator list account")?;
+    check_rent_exempt(rent, accounts.validator_perf_list, "Perf list account")?;
     check_rent_exempt(rent, accounts.maintainer_list, "Maintainer list account")?;
 
     check_account_owner(accounts.lido, program_id)?;

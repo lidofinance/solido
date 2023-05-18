@@ -266,6 +266,8 @@ impl Context {
 
         let rent_reserve = rent.minimum_balance(0);
         let validator_list_size = AccountList::<Validator>::required_bytes(max_validators);
+        let validator_perf_list_size = AccountList::<Validator>::required_bytes(max_validators);
+        let rent_validator_perf_list = rent.minimum_balance(validator_perf_list_size);
         let rent_validator_list = rent.minimum_balance(validator_list_size);
 
         let maintainer_list_size = AccountList::<Maintainer>::required_bytes(max_maintainers);
@@ -291,6 +293,13 @@ impl Context {
                     &result.validator_list.pubkey(),
                     rent_validator_list,
                     validator_list_size as u64,
+                    &id(),
+                ),
+                system_instruction::create_account(
+                    &payer,
+                    &result.validator_perf_list.pubkey(),
+                    rent_validator_perf_list,
+                    validator_perf_list_size as u64,
                     &id(),
                 ),
                 system_instruction::create_account(
@@ -322,6 +331,7 @@ impl Context {
             vec![
                 &result.solido,
                 &result.validator_list,
+                &result.validator_perf_list,
                 &result.maintainer_list,
             ],
         )
