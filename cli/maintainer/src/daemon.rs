@@ -109,10 +109,7 @@ impl MaintenanceMetrics {
                     Metric::new(self.transactions_unstake_from_active_validator)
                         .with_label("operation", "UnstakeFromActiveValidator".to_string()),
                     Metric::new(self.transactions_deactivate_if_violates)
-                        .with_label(
-                            "operation",
-                            "DeactivateIfViolates".to_string(),
-                        ),
+                        .with_label("operation", "DeactivateIfViolates".to_string()),
                 ],
             },
         )?;
