@@ -262,6 +262,10 @@ accounts_struct! {
             is_signer: false,
             is_writable: true,
         },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: true,
+        },
         pub maintainer_list {
             is_signer: false,
             is_writable: true,

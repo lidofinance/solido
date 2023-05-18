@@ -85,6 +85,7 @@ pub struct Context {
     pub maintainer: Option<Keypair>,
     pub validator: Option<ValidatorAccounts>,
     pub validator_list: Keypair,
+    pub validator_perf_list: Keypair,
     pub maintainer_list: Keypair,
 
     pub treasury_st_sol_account: Pubkey,
@@ -195,6 +196,7 @@ impl Context {
         let manager = deterministic_keypair.new_keypair();
         let solido = deterministic_keypair.new_keypair();
         let validator_list = deterministic_keypair.new_keypair();
+        let validator_perf_list = deterministic_keypair.new_keypair();
         let maintainer_list = deterministic_keypair.new_keypair();
 
         let reward_distribution = RewardDistribution {
@@ -231,6 +233,7 @@ impl Context {
             manager,
             solido,
             validator_list,
+            validator_perf_list,
             maintainer_list,
             st_sol_mint: Pubkey::default(),
             maintainer: None,
@@ -311,6 +314,7 @@ impl Context {
                         developer_account: result.developer_st_sol_account,
                         reserve_account: result.reserve_address,
                         validator_list: result.validator_list.pubkey(),
+                        validator_perf_list: result.validator_perf_list.pubkey(),
                         maintainer_list: result.maintainer_list.pubkey(),
                     },
                 ),
