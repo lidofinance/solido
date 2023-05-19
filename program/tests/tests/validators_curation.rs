@@ -8,7 +8,7 @@ use testlib::assert_solido_error;
 use testlib::solido_context::Context;
 
 #[tokio::test]
-async fn test_set_max_commission_percentage() {
+async fn test_curate_by_max_commission_percentage() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     let validator = &context.get_solido().await.validators.entries[0];
 
