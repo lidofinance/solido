@@ -16,7 +16,10 @@ use lido::{
     find_authority_program_address,
     metrics::LamportsHistogram,
     processor::StakeType,
-    state::{AccountList, Lido, ListEntry, Maintainer, RewardDistribution, Validator},
+    state::{
+        AccountList, Lido, ListEntry, Maintainer, RewardDistribution, Thresholds, Validator,
+        ValidatorPerf,
+    },
     token::{Lamports, StLamports},
     util::serialize_b58,
     vote_state::get_vote_account_commission,
@@ -36,9 +39,9 @@ use crate::{
 };
 use crate::{
     config::{
-        AddRemoveMaintainerOpts, AddValidatorOpts, CreateSolidoOpts, CreateV2AccountsOpts,
-        DeactivateIfViolatesOpts, DeactivateValidatorOpts, DepositOpts, MigrateStateToV2Opts,
-        SetMaxValidationCommissionOpts, ShowSolidoAuthoritiesOpts, ShowSolidoOpts, WithdrawOpts,
+        AddRemoveMaintainerOpts, AddValidatorOpts, ChangeThresholdsOpts, CreateSolidoOpts,
+        CreateV2AccountsOpts, DeactivateIfViolatesOpts, DeactivateValidatorOpts, DepositOpts,
+        MigrateStateToV2Opts, ShowSolidoAuthoritiesOpts, ShowSolidoOpts, WithdrawOpts,
     },
     get_signer_from_path,
 };
@@ -135,6 +138,7 @@ pub fn command_create_solido(
 ) -> solido_cli_common::Result<CreateSolidoOutput> {
     let lido_signer = from_key_path_or_random(opts.solido_key_path())?;
     let validator_list_signer = from_key_path_or_random(opts.validator_list_key_path())?;
+    let validator_perf_list_signer = from_key_path_or_random(opts.validator_perf_list_key_path())?;
     let maintainer_list_signer = from_key_path_or_random(opts.maintainer_list_key_path())?;
 
     let (reserve_account, _) = lido::find_authority_program_address(
@@ -161,6 +165,12 @@ pub fn command_create_solido(
     let validator_list_account_balance = config
         .client
         .get_minimum_balance_for_rent_exemption(validator_list_size)?;
+
+    let validator_perf_list_size =
+        AccountList::<ValidatorPerf>::required_bytes(*opts.max_validators());
+    let validator_perf_list_account_balance = config
+        .client
+        .get_minimum_balance_for_rent_exemption(validator_perf_list_size)?;
 
     let maintainer_list_size = AccountList::<Maintainer>::required_bytes(*opts.max_maintainers());
     let maintainer_list_account_balance = config
@@ -236,6 +246,15 @@ pub fn command_create_solido(
         opts.solido_program_id(),
     ));
 
+    // Create the account that holds the validator perf list itself.
+    instructions.push(system_instruction::create_account(
+        &config.signer.pubkey(),
+        &validator_perf_list_signer.pubkey(),
+        validator_perf_list_account_balance.0,
+        validator_perf_list_size as u64,
+        opts.solido_program_id(),
+    ));
+
     // Create the account that holds the maintainer list itself.
     instructions.push(system_instruction::create_account(
         &config.signer.pubkey(),
@@ -252,17 +271,22 @@ pub fn command_create_solido(
             developer_fee: *opts.developer_fee_share(),
             st_sol_appreciation: *opts.st_sol_appreciation_share(),
         },
+        Thresholds {
+            max_commission: *opts.max_commission(),
+            min_vote_success_rate: *opts.min_vote_success_rate(),
+            min_block_production_rate: *opts.min_block_production_rate(),
+        },
         *opts.max_validators(),
         *opts.max_maintainers(),
-        *opts.max_commission_percentage(),
         &lido::instruction::InitializeAccountsMeta {
             lido: lido_signer.pubkey(),
-            st_sol_mint: st_sol_mint_pubkey,
             manager,
+            st_sol_mint: st_sol_mint_pubkey,
             treasury_account: treasury_keypair.pubkey(),
             developer_account: developer_keypair.pubkey(),
             reserve_account,
             validator_list: validator_list_signer.pubkey(),
+            validator_perf_list: validator_perf_list_signer.pubkey(),
             maintainer_list: maintainer_list_signer.pubkey(),
         },
     ));
@@ -1025,7 +1049,7 @@ impl fmt::Display for DeactivateIfViolatesOutput {
     }
 }
 
-/// CLI entry point to punish validator for commission violation.
+/// CLI entry point to curate out the validators that violate the thresholds
 pub fn command_deactivate_if_violates(
     config: &mut SnapshotConfig,
     opts: &DeactivateIfViolatesOpts,
@@ -1077,21 +1101,25 @@ pub fn command_deactivate_if_violates(
     })
 }
 
-/// CLI entry point to set max validation commission
-pub fn command_set_max_commission_percentage(
+/// CLI entry point to change the thresholds of curating out the validators
+pub fn command_change_thresholds(
     config: &mut SnapshotConfig,
-    opts: &SetMaxValidationCommissionOpts,
+    opts: &ChangeThresholdsOpts,
 ) -> solido_cli_common::Result<ProposeInstructionOutput> {
     let (multisig_address, _) =
         get_multisig_program_address(opts.multisig_program_id(), opts.multisig_address());
 
-    let instruction = lido::instruction::set_max_commission_percentage(
+    let instruction = lido::instruction::change_thresholds(
         opts.solido_program_id(),
-        &lido::instruction::SetMaxValidationCommissionMeta {
+        &lido::instruction::ChangeThresholdsMeta {
             lido: *opts.solido_address(),
             manager: multisig_address,
         },
-        *opts.max_commission_percentage(),
+        Thresholds {
+            max_commission: *opts.max_commission(),
+            min_vote_success_rate: *opts.min_vote_success_rate(),
+            min_block_production_rate: *opts.min_block_production_rate(),
+        },
     );
     propose_instruction(
         config,

@@ -254,7 +254,15 @@ cli_opt_struct! {
 
         /// The maximum validator fee a validator can have to be accepted by protocol.
         #[clap(long, value_name = "int")]
-        max_commission_percentage: u8,
+        max_commission: u8,
+
+        /// The minimum vote success rate a validator must have to not be deactivated.
+        #[clap(long, value_name = "int")]
+        min_vote_success_rate: u8,
+
+        /// The minimum block production rate a validator must have to not be deactivated.
+        #[clap(long, value_name = "int")]
+        min_block_production_rate: u8,
 
         // See also the docs section of `create-solido` in main.rs for a description
         // of the fee shares.
@@ -293,11 +301,15 @@ cli_opt_struct! {
         #[clap(long)]
         validator_list_key_path: PathBuf => PathBuf::default(),
 
+        /// Optional argument for the validator performance list address,
+        /// if not passed, a random one will be created.
+        #[clap(long)]
+        validator_perf_list_key_path: PathBuf => PathBuf::default(),
+
         /// Optional argument for the maintainer list address, if not passed a random one
         /// will be created.
         #[clap(long)]
         maintainer_list_key_path: PathBuf => PathBuf::default(),
-
 
         /// Used to compute Solido's manager. Multisig instance.
         #[clap(long, value_name = "address")]
@@ -472,7 +484,7 @@ cli_opt_struct! {
 }
 
 cli_opt_struct! {
-    SetMaxValidationCommissionOpts {
+    ChangeThresholdsOpts {
         /// Address of the Solido program.
         #[clap(long, value_name = "address")]
         solido_program_id: Pubkey,
@@ -481,9 +493,17 @@ cli_opt_struct! {
         #[clap(long, value_name = "address")]
         solido_address: Pubkey,
 
-        /// Max percent of rewards a validator can receive (validation commission), in range [0, 100]
-        #[clap(long, value_name = "fee")]
-        max_commission_percentage: u8,
+        /// Max percent of rewards a validator can receive (validation commission), in range `[0, 100]`.
+        #[clap(long, value_name = "percentage")]
+        max_commission: u8,
+
+        /// Min vote success rate that a validator must uphold.
+        #[clap(long, value_name = "rate")]
+        min_vote_success_rate: u8,
+
+        /// Min block production rate that a validator must uphold.
+        #[clap(long, value_name = "rate")]
+        min_block_production_rate: u8,
 
         /// Multisig instance.
         #[clap(long, value_name = "address")]

@@ -26,10 +26,10 @@ use solana_sdk::sysvar;
 use lido::{
     instruction::{
         AddMaintainerMetaV2, AddValidatorMetaV2, ChangeRewardDistributionMeta,
-        DeactivateValidatorMetaV2, LidoInstruction, MigrateStateToV2Meta, RemoveMaintainerMetaV2,
-        SetMaxValidationCommissionMeta,
+        ChangeThresholdsMeta, DeactivateValidatorMetaV2, LidoInstruction, MigrateStateToV2Meta,
+        RemoveMaintainerMetaV2,
     },
-    state::{FeeRecipients, Lido, RewardDistribution},
+    state::{FeeRecipients, Lido, RewardDistribution, Thresholds},
     util::{serialize_b58, serialize_b58_slice},
 };
 use solido_cli_common::error::Abort;
@@ -472,11 +472,11 @@ enum SolidoInstruction {
 
         fee_recipients: FeeRecipients,
     },
-    SetMaxValidationCommission {
+    ChangeThresholds {
         #[serde(serialize_with = "serialize_b58")]
         solido_instance: Pubkey,
 
-        max_commission_percentage: u8,
+        thresholds: Thresholds,
 
         #[serde(serialize_with = "serialize_b58")]
         manager: Pubkey,
@@ -668,18 +668,28 @@ impl fmt::Display for ShowTransactionOutput {
                         print_changed_reward_distribution(f, current_solido, reward_distribution)?;
                         print_changed_recipients(f, current_solido, fee_recipients)?;
                     }
-                    SolidoInstruction::SetMaxValidationCommission {
+                    SolidoInstruction::ChangeThresholds {
                         solido_instance,
-                        max_commission_percentage,
+                        thresholds,
                         manager,
                     } => {
-                        writeln!(f, "It sets the maximum validation commission")?;
+                        writeln!(f, "It sets the curation thresholds")?;
                         writeln!(f, "    Solido instance:    {}", solido_instance)?;
                         writeln!(f, "    Manager:            {}", manager)?;
                         writeln!(
                             f,
-                            "    Max validation commission: {}%",
-                            max_commission_percentage
+                            "    Max commission for validators: {}%",
+                            thresholds.max_commission,
+                        )?;
+                        writeln!(
+                            f,
+                            "    Min vote success rate: {}%",
+                            thresholds.min_vote_success_rate,
+                        )?;
+                        writeln!(
+                            f,
+                            "    Min block production rate: {}%",
+                            thresholds.min_block_production_rate,
                         )?;
                     }
                     SolidoInstruction::MigrateStateToV2 {
@@ -1065,13 +1075,11 @@ fn try_parse_solido_instruction(
                 maintainer_index,
             })
         }
-        LidoInstruction::SetMaxValidationCommission {
-            max_commission_percentage,
-        } => {
-            let accounts = SetMaxValidationCommissionMeta::try_from_slice(&instr.accounts)?;
-            ParsedInstruction::SolidoInstruction(SolidoInstruction::SetMaxValidationCommission {
+        LidoInstruction::ChangeThresholds { new_thresholds } => {
+            let accounts = ChangeThresholdsMeta::try_from_slice(&instr.accounts)?;
+            ParsedInstruction::SolidoInstruction(SolidoInstruction::ChangeThresholds {
                 solido_instance: accounts.lido,
-                max_commission_percentage,
+                thresholds: new_thresholds,
                 manager: accounts.manager,
             })
         }

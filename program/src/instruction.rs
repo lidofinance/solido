@@ -113,14 +113,14 @@ pub enum LidoInstruction {
         validator_index: u32,
     },
 
-    /// Set max_commission_percentage to control validator's fees.
-    /// If validators exceed the threshold they will be deactivated by
-    /// DeactivateIfViolates.
+    /// Set the curation thresholds to control validator's desired performance.
+    /// If validators fall below the threshold they will be deactivated by
+    /// `DeactivateIfViolates`.
     ///
     /// Requires the manager to sign.
-    SetMaxValidationCommission {
+    ChangeThresholds {
         #[allow(dead_code)] // but it's not
-        max_commission_percentage: u8, // percent in [0, 100]
+        new_thresholds: Thresholds,
     },
 
     /// Move deposits from the reserve into a stake account and delegate it to a member validator.
@@ -1017,7 +1017,7 @@ pub fn deactivate_if_violates(
 }
 
 accounts_struct! {
-    SetMaxValidationCommissionMeta, SetMaxValidationCommissionInfo {
+    ChangeThresholdsMeta, ChangeThresholdsInfo {
         pub lido {
             is_signer: false,
             is_writable: true,
