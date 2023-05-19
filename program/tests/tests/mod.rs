@@ -8,7 +8,7 @@ pub mod change_reward_distribution;
 pub mod deposit;
 pub mod limits;
 pub mod maintainers;
-pub mod max_commission_percentage;
+pub mod validators_curation;
 pub mod merge_stake;
 pub mod solana_assumptions;
 pub mod stake_deposit;
