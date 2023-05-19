@@ -1029,14 +1029,12 @@ accounts_struct! {
     }
 }
 
-pub fn set_max_commission_percentage(
+pub fn change_thresholds(
     program_id: &Pubkey,
-    accounts: &SetMaxValidationCommissionMeta,
-    max_commission_percentage: u8,
+    accounts: &ChangeThresholdsMeta,
+    new_thresholds: Thresholds,
 ) -> Instruction {
-    let data = LidoInstruction::SetMaxValidationCommission {
-        max_commission_percentage,
-    };
+    let data = LidoInstruction::ChangeThresholds { new_thresholds };
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),

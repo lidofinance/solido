@@ -1374,16 +1374,25 @@ impl Context {
         VoteState::deserialize(&vote_acc.data)
     }
 
-    pub async fn try_set_max_commission_percentage(&mut self, fee: u8) -> transport::Result<()> {
+    pub async fn try_set_max_commission_percentage(
+        &mut self,
+        max_commission: u8,
+    ) -> transport::Result<()> {
+        let solido = self.get_solido().await;
+        let current_thresholds = solido.lido.thresholds;
+
         send_transaction(
             &mut self.context,
-            &[lido::instruction::set_max_commission_percentage(
+            &[lido::instruction::change_thresholds(
                 &id(),
-                &lido::instruction::SetMaxValidationCommissionMeta {
+                &lido::instruction::ChangeThresholdsMeta {
                     lido: self.solido.pubkey(),
                     manager: self.manager.pubkey(),
                 },
-                fee,
+                Thresholds {
+                    max_commission,
+                    ..current_thresholds
+                },
             )],
             vec![&self.manager],
         )

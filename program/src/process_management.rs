@@ -8,14 +8,14 @@ use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, msg, 
 
 use crate::logic::check_rent_exempt;
 use crate::processor::StakeType;
-use crate::state::Lido;
+use crate::state::{Lido, Thresholds};
 use crate::vote_state::PartialVoteState;
 use crate::{
     error::LidoError,
     instruction::{
         AddMaintainerInfoV2, AddValidatorInfoV2, ChangeRewardDistributionInfo,
         DeactivateIfViolatesInfo, DeactivateValidatorInfoV2, MergeStakeInfoV2,
-        RemoveMaintainerInfoV2, RemoveValidatorInfoV2, SetMaxValidationCommissionInfo,
+        RemoveMaintainerInfoV2, RemoveValidatorInfoV2, ChangeThresholdsInfo,
     },
     state::{ListEntry, Maintainer, RewardDistribution, Validator},
     vote_state::get_vote_account_commission,
@@ -215,23 +215,23 @@ pub fn process_remove_maintainer(
     Ok(())
 }
 
-/// Sets max validation commission for Lido. If validators exceed the threshold
-/// they will be deactivated by DeactivateIfViolates
-pub fn process_set_max_commission_percentage(
+/// Set the new curation thresholds. If validators exceed those threshold,
+/// they will be deactivated by `DeactivateIfViolates`.
+pub fn process_change_thresholds(
     program_id: &Pubkey,
-    max_commission_percentage: u8,
+    new_thresholds: Thresholds,
     accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
-    if max_commission_percentage > 100 {
+    if new_thresholds.max_commission > 100 {
         return Err(LidoError::ValidationCommissionOutOfBounds.into());
     }
 
-    let accounts = SetMaxValidationCommissionInfo::try_from_slice(accounts_raw)?;
+    let accounts = ChangeThresholdsInfo::try_from_slice(accounts_raw)?;
     let mut lido = Lido::deserialize_lido(program_id, accounts.lido)?;
 
     lido.check_manager(accounts.manager)?;
 
-    lido.thresholds.max_commission = max_commission_percentage;
+    lido.thresholds = new_thresholds;
 
     lido.save(accounts.lido)
 }

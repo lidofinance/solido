@@ -22,7 +22,7 @@ use crate::{
     process_management::{
         process_add_maintainer, process_add_validator, process_change_reward_distribution,
         process_deactivate_if_violates, process_deactivate_validator, process_merge_stake,
-        process_remove_maintainer, process_remove_validator, process_set_max_commission_percentage,
+        process_remove_maintainer, process_remove_validator, process_change_thresholds,
     },
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
@@ -1225,9 +1225,9 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::DeactivateIfViolates { validator_index } => {
             process_deactivate_if_violates(program_id, validator_index, accounts)
         }
-        LidoInstruction::SetMaxValidationCommission {
-            max_commission_percentage,
-        } => process_set_max_commission_percentage(program_id, max_commission_percentage, accounts),
+        LidoInstruction::ChangeThresholds { new_thresholds } => {
+            process_change_thresholds(program_id, new_thresholds, accounts)
+        }
         LidoInstruction::MigrateStateToV2 {
             reward_distribution,
             max_validators,
