@@ -8,14 +8,14 @@ use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, msg, 
 
 use crate::logic::check_rent_exempt;
 use crate::processor::StakeType;
-use crate::state::{Lido, Thresholds};
+use crate::state::{Criteria, Lido};
 use crate::vote_state::PartialVoteState;
 use crate::{
     error::LidoError,
     instruction::{
-        AddMaintainerInfoV2, AddValidatorInfoV2, ChangeRewardDistributionInfo,
+        AddMaintainerInfoV2, AddValidatorInfoV2, ChangeCriteriaInfo, ChangeRewardDistributionInfo,
         DeactivateIfViolatesInfo, DeactivateValidatorInfoV2, MergeStakeInfoV2,
-        RemoveMaintainerInfoV2, RemoveValidatorInfoV2, ChangeThresholdsInfo,
+        RemoveMaintainerInfoV2, RemoveValidatorInfoV2,
     },
     state::{ListEntry, Maintainer, RewardDistribution, Validator},
     vote_state::get_vote_account_commission,
@@ -57,7 +57,7 @@ pub fn process_add_validator(program_id: &Pubkey, accounts_raw: &[AccountInfo]) 
     // satisfy the commission limit.
     let _partial_vote_state = PartialVoteState::deserialize(
         accounts.validator_vote_account,
-        lido.thresholds.max_commission,
+        lido.criteria.max_commission,
     )?;
 
     let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
@@ -165,7 +165,7 @@ pub fn process_deactivate_if_violates(
         let data = accounts.validator_vote_account_to_deactivate.data.borrow();
         let commission = get_vote_account_commission(&data)?;
 
-        if commission <= lido.thresholds.max_commission {
+        if commission <= lido.criteria.max_commission {
             return Ok(());
         }
     } else {
@@ -215,23 +215,23 @@ pub fn process_remove_maintainer(
     Ok(())
 }
 
-/// Set the new curation thresholds. If validators exceed those threshold,
+/// Set the new curation criteria. If validators exceed those thresholds,
 /// they will be deactivated by `DeactivateIfViolates`.
-pub fn process_change_thresholds(
+pub fn process_change_criteria(
     program_id: &Pubkey,
-    new_thresholds: Thresholds,
+    new_criteria: Criteria,
     accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
-    if new_thresholds.max_commission > 100 {
+    if new_criteria.max_commission > 100 {
         return Err(LidoError::ValidationCommissionOutOfBounds.into());
     }
 
-    let accounts = ChangeThresholdsInfo::try_from_slice(accounts_raw)?;
+    let accounts = ChangeCriteriaInfo::try_from_slice(accounts_raw)?;
     let mut lido = Lido::deserialize_lido(program_id, accounts.lido)?;
 
     lido.check_manager(accounts.manager)?;
 
-    lido.thresholds = new_thresholds;
+    lido.criteria = new_criteria;
 
     lido.save(accounts.lido)
 }

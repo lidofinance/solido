@@ -17,7 +17,7 @@ use solana_program::{
 use crate::{
     accounts_struct, accounts_struct_meta,
     error::LidoError,
-    state::{RewardDistribution, Thresholds},
+    state::{Criteria, RewardDistribution},
     token::{Lamports, StLamports},
 };
 
@@ -28,7 +28,7 @@ pub enum LidoInstruction {
         #[allow(dead_code)] // but it's not
         reward_distribution: RewardDistribution,
         #[allow(dead_code)] // but it's not
-        thresholds: Thresholds,
+        criteria: Criteria,
         #[allow(dead_code)] // but it's not
         max_validators: u32,
         #[allow(dead_code)] // but it's not
@@ -118,9 +118,9 @@ pub enum LidoInstruction {
     /// `DeactivateIfViolates`.
     ///
     /// Requires the manager to sign.
-    ChangeThresholds {
+    ChangeCriteria {
         #[allow(dead_code)] // but it's not
-        new_thresholds: Thresholds,
+        new_criteria: Criteria,
     },
 
     /// Move deposits from the reserve into a stake account and delegate it to a member validator.
@@ -279,14 +279,14 @@ accounts_struct! {
 pub fn initialize(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
-    thresholds: Thresholds,
+    criteria: Criteria,
     max_validators: u32,
     max_maintainers: u32,
     accounts: &InitializeAccountsMeta,
 ) -> Instruction {
     let data = LidoInstruction::Initialize {
         reward_distribution,
-        thresholds,
+        criteria,
         max_validators,
         max_maintainers,
     };
@@ -1017,7 +1017,7 @@ pub fn deactivate_if_violates(
 }
 
 accounts_struct! {
-    ChangeThresholdsMeta, ChangeThresholdsInfo {
+    ChangeCriteriaMeta, ChangeCriteriaInfo {
         pub lido {
             is_signer: false,
             is_writable: true,
@@ -1029,12 +1029,12 @@ accounts_struct! {
     }
 }
 
-pub fn change_thresholds(
+pub fn change_criteria(
     program_id: &Pubkey,
-    accounts: &ChangeThresholdsMeta,
-    new_thresholds: Thresholds,
+    accounts: &ChangeCriteriaMeta,
+    new_criteria: Criteria,
 ) -> Instruction {
-    let data = LidoInstruction::ChangeThresholds { new_thresholds };
+    let data = LidoInstruction::ChangeCriteria { new_criteria };
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),

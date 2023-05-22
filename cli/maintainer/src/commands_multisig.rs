@@ -25,11 +25,10 @@ use solana_sdk::sysvar;
 
 use lido::{
     instruction::{
-        AddMaintainerMetaV2, AddValidatorMetaV2, ChangeRewardDistributionMeta,
-        ChangeThresholdsMeta, DeactivateValidatorMetaV2, LidoInstruction, MigrateStateToV2Meta,
-        RemoveMaintainerMetaV2,
+        AddMaintainerMetaV2, AddValidatorMetaV2, ChangeCriteriaMeta, ChangeRewardDistributionMeta,
+        DeactivateValidatorMetaV2, LidoInstruction, MigrateStateToV2Meta, RemoveMaintainerMetaV2,
     },
-    state::{FeeRecipients, Lido, RewardDistribution, Thresholds},
+    state::{Criteria, FeeRecipients, Lido, RewardDistribution},
     util::{serialize_b58, serialize_b58_slice},
 };
 use solido_cli_common::error::Abort;
@@ -472,11 +471,11 @@ enum SolidoInstruction {
 
         fee_recipients: FeeRecipients,
     },
-    ChangeThresholds {
+    ChangeCriteria {
         #[serde(serialize_with = "serialize_b58")]
         solido_instance: Pubkey,
 
-        thresholds: Thresholds,
+        criteria: Criteria,
 
         #[serde(serialize_with = "serialize_b58")]
         manager: Pubkey,
@@ -668,28 +667,28 @@ impl fmt::Display for ShowTransactionOutput {
                         print_changed_reward_distribution(f, current_solido, reward_distribution)?;
                         print_changed_recipients(f, current_solido, fee_recipients)?;
                     }
-                    SolidoInstruction::ChangeThresholds {
+                    SolidoInstruction::ChangeCriteria {
                         solido_instance,
-                        thresholds,
+                        criteria,
                         manager,
                     } => {
-                        writeln!(f, "It sets the curation thresholds")?;
+                        writeln!(f, "It sets the curation criteria")?;
                         writeln!(f, "    Solido instance:    {}", solido_instance)?;
                         writeln!(f, "    Manager:            {}", manager)?;
                         writeln!(
                             f,
                             "    Max commission for validators: {}%",
-                            thresholds.max_commission,
+                            criteria.max_commission,
                         )?;
                         writeln!(
                             f,
                             "    Min vote success rate: {}%",
-                            thresholds.min_vote_success_rate,
+                            criteria.min_vote_success_rate,
                         )?;
                         writeln!(
                             f,
                             "    Min block production rate: {}%",
-                            thresholds.min_block_production_rate,
+                            criteria.min_block_production_rate,
                         )?;
                     }
                     SolidoInstruction::MigrateStateToV2 {
@@ -1075,11 +1074,11 @@ fn try_parse_solido_instruction(
                 maintainer_index,
             })
         }
-        LidoInstruction::ChangeThresholds { new_thresholds } => {
-            let accounts = ChangeThresholdsMeta::try_from_slice(&instr.accounts)?;
-            ParsedInstruction::SolidoInstruction(SolidoInstruction::ChangeThresholds {
+        LidoInstruction::ChangeCriteria { new_criteria } => {
+            let accounts = ChangeCriteriaMeta::try_from_slice(&instr.accounts)?;
+            ParsedInstruction::SolidoInstruction(SolidoInstruction::ChangeCriteria {
                 solido_instance: accounts.lido,
-                thresholds: new_thresholds,
+                criteria: new_criteria,
                 manager: accounts.manager,
             })
         }

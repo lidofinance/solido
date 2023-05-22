@@ -750,9 +750,7 @@ impl SolidoState {
 
     /// If there is a validator which exceeded commission limit or it's vote account is closed,
     /// try to deactivate it.
-    pub fn try_deactivate_if_violates(
-        &self,
-    ) -> Option<MaintenanceInstruction> {
+    pub fn try_deactivate_if_violates(&self) -> Option<MaintenanceInstruction> {
         for (validator_index, (validator, vote_state)) in self
             .validators
             .entries
@@ -766,7 +764,7 @@ impl SolidoState {
 
             // We are only interested in validators that violate commission limit
             if let Some(state) = vote_state {
-                if state.commission <= self.solido.thresholds.max_commission {
+                if state.commission <= self.solido.criteria.max_commission {
                     continue;
                 }
             } else {

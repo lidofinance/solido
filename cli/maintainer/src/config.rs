@@ -484,7 +484,7 @@ cli_opt_struct! {
 }
 
 cli_opt_struct! {
-    ChangeThresholdsOpts {
+    ChangeCriteriaOpts {
         /// Address of the Solido program.
         #[clap(long, value_name = "address")]
         solido_program_id: Pubkey,

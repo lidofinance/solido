@@ -33,8 +33,8 @@ use lido::token::{Lamports, StLamports};
 use lido::{error::LidoError, instruction, RESERVE_ACCOUNT, STAKE_AUTHORITY};
 use lido::{
     state::{
-        AccountList, FeeRecipients, Lido, ListEntry, Maintainer, RewardDistribution, StakeDeposit,
-        Thresholds, Validator, ValidatorPerf,
+        AccountList, Criteria, FeeRecipients, Lido, ListEntry, Maintainer, RewardDistribution,
+        StakeDeposit, Validator, ValidatorPerf,
     },
     MINT_AUTHORITY,
 };
@@ -96,7 +96,7 @@ pub struct Context {
     pub stake_authority: Pubkey,
     pub mint_authority: Pubkey,
 
-    pub thresholds: Thresholds,
+    pub criteria: Criteria,
 }
 
 pub struct ValidatorAccounts {
@@ -245,7 +245,7 @@ impl Context {
             stake_authority,
             mint_authority,
             deterministic_keypair,
-            thresholds: Thresholds::new(5, 0, 0),
+            criteria: Criteria::new(5, 0, 0),
         };
 
         result.st_sol_mint = result.create_mint(result.mint_authority).await;
@@ -312,7 +312,7 @@ impl Context {
                 instruction::initialize(
                     &id(),
                     result.reward_distribution.clone(),
-                    result.thresholds.clone(),
+                    result.criteria.clone(),
                     max_validators,
                     max_maintainers,
                     &instruction::InitializeAccountsMeta {
@@ -740,7 +740,7 @@ impl Context {
             .create_vote_account(
                 &node_account,
                 withdraw_authority.pubkey(),
-                self.thresholds.max_commission,
+                self.criteria.max_commission,
             )
             .await;
 
@@ -1379,19 +1379,19 @@ impl Context {
         max_commission: u8,
     ) -> transport::Result<()> {
         let solido = self.get_solido().await;
-        let current_thresholds = solido.lido.thresholds;
+        let current_criteria = solido.lido.criteria;
 
         send_transaction(
             &mut self.context,
-            &[lido::instruction::change_thresholds(
+            &[lido::instruction::change_criteria(
                 &id(),
-                &lido::instruction::ChangeThresholdsMeta {
+                &lido::instruction::ChangeCriteriaMeta {
                     lido: self.solido.pubkey(),
                     manager: self.manager.pubkey(),
                 },
-                Thresholds {
+                Criteria {
                     max_commission,
-                    ..current_thresholds
+                    ..current_criteria
                 },
             )],
             vec![&self.manager],

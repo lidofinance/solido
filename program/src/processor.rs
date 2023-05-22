@@ -20,14 +20,15 @@ use crate::{
     },
     metrics::Metrics,
     process_management::{
-        process_add_maintainer, process_add_validator, process_change_reward_distribution,
-        process_deactivate_if_violates, process_deactivate_validator, process_merge_stake,
-        process_remove_maintainer, process_remove_validator, process_change_thresholds,
+        process_add_maintainer, process_add_validator, process_change_criteria,
+        process_change_reward_distribution, process_deactivate_if_violates,
+        process_deactivate_validator, process_merge_stake, process_remove_maintainer,
+        process_remove_validator,
     },
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
-        AccountType, ExchangeRate, FeeRecipients, Lido, LidoV1, ListEntry, Maintainer,
-        MaintainerList, RewardDistribution, StakeDeposit, Thresholds, Validator, ValidatorList,
+        AccountType, Criteria, ExchangeRate, FeeRecipients, Lido, LidoV1, ListEntry, Maintainer,
+        MaintainerList, RewardDistribution, StakeDeposit, Validator, ValidatorList,
         ValidatorPerfList,
     },
     token::{Lamports, Rational, StLamports},
@@ -58,7 +59,7 @@ use {
 pub fn process_initialize(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
-    thresholds: Thresholds,
+    criteria: Criteria,
     max_validators: u32,
     max_maintainers: u32,
     accounts_raw: &[AccountInfo],
@@ -135,7 +136,7 @@ pub fn process_initialize(
     // Check if the token has no minted tokens and right mint authority.
     check_mint(rent, accounts.st_sol_mint, &mint_authority)?;
 
-    if thresholds.max_commission > 100 {
+    if criteria.max_commission > 100 {
         return Err(LidoError::ValidationCommissionOutOfBounds.into());
     }
 
@@ -155,7 +156,7 @@ pub fn process_initialize(
             developer_account: *accounts.developer_account.key,
         },
         metrics: Metrics::new(),
-        thresholds: Thresholds::default(),
+        criteria: Criteria::default(),
         validator_list: *accounts.validator_list.key,
         maintainer_list: *accounts.maintainer_list.key,
     };
@@ -1137,7 +1138,7 @@ pub fn processor_migrate_to_v2(
         mint_authority_bump_seed: lido_v1.mint_authority_bump_seed,
         stake_authority_bump_seed: lido_v1.stake_authority_bump_seed,
         metrics: lido_v1.metrics,
-        thresholds: Thresholds::default(),
+        criteria: Criteria::default(),
     };
 
     // Confirm that the fee recipients are actually stSOL accounts.
@@ -1154,13 +1155,13 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
     match instruction {
         LidoInstruction::Initialize {
             reward_distribution,
-            thresholds,
+            criteria,
             max_validators,
             max_maintainers,
         } => process_initialize(
             program_id,
             reward_distribution,
-            thresholds,
+            criteria,
             max_validators,
             max_maintainers,
             accounts,
@@ -1225,8 +1226,8 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::DeactivateIfViolates { validator_index } => {
             process_deactivate_if_violates(program_id, validator_index, accounts)
         }
-        LidoInstruction::ChangeThresholds { new_thresholds } => {
-            process_change_thresholds(program_id, new_thresholds, accounts)
+        LidoInstruction::ChangeCriteria { new_criteria } => {
+            process_change_criteria(program_id, new_criteria, accounts)
         }
         LidoInstruction::MigrateStateToV2 {
             reward_distribution,

@@ -13,13 +13,13 @@ async fn test_curate_by_max_commission_percentage() {
     let validator = &context.get_solido().await.validators.entries[0];
 
     // increase max_commission_percentage
-    let result = context.try_set_max_commission_percentage(context.thresholds.max_commission + 1);
+    let result = context.try_set_max_commission_percentage(context.criteria.max_commission + 1);
     assert_eq!(result.await.is_ok(), true);
 
     let solido = context.get_solido().await.lido;
     assert_eq!(
-        solido.thresholds.max_commission,
-        context.thresholds.max_commission + 1
+        solido.criteria.max_commission,
+        context.criteria.max_commission + 1
     );
 
     let result = context.try_deactivate_if_violates(*validator.pubkey());
@@ -36,7 +36,7 @@ async fn test_curate_by_max_commission_percentage() {
     );
 
     // decrease max_commission_percentage
-    let result = context.try_set_max_commission_percentage(context.thresholds.max_commission - 1);
+    let result = context.try_set_max_commission_percentage(context.criteria.max_commission - 1);
     assert_eq!(result.await.is_ok(), true);
 
     let result = context.try_deactivate_if_violates(*validator.pubkey());

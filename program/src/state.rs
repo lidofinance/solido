@@ -742,7 +742,7 @@ impl ExchangeRate {
 ///
 #[repr(C)]
 #[derive(Clone, Debug, BorshDeserialize, BorshSerialize, BorshSchema, Eq, PartialEq, Serialize)]
-pub struct Thresholds {
+pub struct Criteria {
     /// If a validator has the commission higher than this, then it gets deactivated.
     pub max_commission: u8,
 
@@ -753,7 +753,7 @@ pub struct Thresholds {
     pub min_block_production_rate: u8,
 }
 
-impl Default for Thresholds {
+impl Default for Criteria {
     fn default() -> Self {
         Self {
             max_commission: 100,
@@ -763,7 +763,7 @@ impl Default for Thresholds {
     }
 }
 
-impl Thresholds {
+impl Criteria {
     pub fn new(
         max_commission: u8,
         min_vote_success_rate: u8,
@@ -818,8 +818,8 @@ pub struct Lido {
     pub metrics: Metrics,
 
     /// Metrics of validator's performance such that if a validator's metrics
-    /// do not meet the threshold, then the validator gets deactivated.
-    pub thresholds: Thresholds,
+    /// do not meet that criteria, then the validator gets deactivated.
+    pub criteria: Criteria,
 
     /// Validator list account
     #[serde(serialize_with = "serialize_b58")]
@@ -1596,7 +1596,7 @@ mod test_lido {
                 developer_account: Pubkey::new_unique(),
             },
             metrics: Metrics::new(),
-            thresholds: Thresholds::new(5, 0, 0),
+            criteria: Criteria::new(5, 0, 0),
             validator_list: Pubkey::new_unique(),
             maintainer_list: Pubkey::new_unique(),
         };

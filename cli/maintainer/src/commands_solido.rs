@@ -17,7 +17,7 @@ use lido::{
     metrics::LamportsHistogram,
     processor::StakeType,
     state::{
-        AccountList, Lido, ListEntry, Maintainer, RewardDistribution, Thresholds, Validator,
+        AccountList, Criteria, Lido, ListEntry, Maintainer, RewardDistribution, Validator,
         ValidatorPerf,
     },
     token::{Lamports, StLamports},
@@ -39,7 +39,7 @@ use crate::{
 };
 use crate::{
     config::{
-        AddRemoveMaintainerOpts, AddValidatorOpts, ChangeThresholdsOpts, CreateSolidoOpts,
+        AddRemoveMaintainerOpts, AddValidatorOpts, ChangeCriteriaOpts, CreateSolidoOpts,
         CreateV2AccountsOpts, DeactivateIfViolatesOpts, DeactivateValidatorOpts, DepositOpts,
         MigrateStateToV2Opts, ShowSolidoAuthoritiesOpts, ShowSolidoOpts, WithdrawOpts,
     },
@@ -271,7 +271,7 @@ pub fn command_create_solido(
             developer_fee: *opts.developer_fee_share(),
             st_sol_appreciation: *opts.st_sol_appreciation_share(),
         },
-        Thresholds {
+        Criteria {
             max_commission: *opts.max_commission(),
             min_vote_success_rate: *opts.min_vote_success_rate(),
             min_block_production_rate: *opts.min_block_production_rate(),
@@ -542,7 +542,7 @@ impl fmt::Display for ShowSolidoOutput {
         writeln!(
             f,
             "Max validation commission: {}%",
-            self.solido.thresholds.max_commission,
+            self.solido.criteria.max_commission,
         )?;
 
         writeln!(f, "\nMetrics:")?;
@@ -1069,7 +1069,7 @@ pub fn command_deactivate_if_violates(
             .ok()
             .ok_or_else(|| CliError::new("Validator account data too small"))?;
 
-        if !validator.active || commission <= solido.thresholds.max_commission {
+        if !validator.active || commission <= solido.criteria.max_commission {
             continue;
         }
 
@@ -1097,25 +1097,25 @@ pub fn command_deactivate_if_violates(
 
     Ok(DeactivateIfViolatesOutput {
         entries: violations,
-        max_commission_percentage: solido.thresholds.max_commission,
+        max_commission_percentage: solido.criteria.max_commission,
     })
 }
 
 /// CLI entry point to change the thresholds of curating out the validators
-pub fn command_change_thresholds(
+pub fn command_change_criteria(
     config: &mut SnapshotConfig,
-    opts: &ChangeThresholdsOpts,
+    opts: &ChangeCriteriaOpts,
 ) -> solido_cli_common::Result<ProposeInstructionOutput> {
     let (multisig_address, _) =
         get_multisig_program_address(opts.multisig_program_id(), opts.multisig_address());
 
-    let instruction = lido::instruction::change_thresholds(
+    let instruction = lido::instruction::change_criteria(
         opts.solido_program_id(),
-        &lido::instruction::ChangeThresholdsMeta {
+        &lido::instruction::ChangeCriteriaMeta {
             lido: *opts.solido_address(),
             manager: multisig_address,
         },
-        Thresholds {
+        Criteria {
             max_commission: *opts.max_commission(),
             min_vote_success_rate: *opts.min_vote_success_rate(),
             min_block_production_rate: *opts.min_block_production_rate(),
