@@ -158,6 +158,7 @@ pub fn process_initialize(
         metrics: Metrics::new(),
         criteria: Criteria::default(),
         validator_list: *accounts.validator_list.key,
+        validator_perf_list: *accounts.validator_perf_list.key,
         maintainer_list: *accounts.maintainer_list.key,
     };
 
@@ -624,9 +625,9 @@ pub fn process_update_exchange_rate(
 
 pub fn process_update_block_production_rate(
     _program_id: &Pubkey,
-    _raw_accounts: &[AccountInfo],
     _validator_index: u32,
     _block_production_rate: u8,
+    _raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
     unimplemented!("no no")
 }
@@ -1069,15 +1070,22 @@ pub fn process_migrate_to_v2(
 
     let rent = &Rent::get()?;
     check_rent_exempt(rent, accounts.validator_list, "Validator list account")?;
+    check_rent_exempt(rent, accounts.validator_perf_list, "Perf list account")?;
     check_rent_exempt(rent, accounts.maintainer_list, "Maintainer list account")?;
 
     check_account_owner(accounts.validator_list, program_id)?;
+    check_account_owner(accounts.validator_perf_list, program_id)?;
     check_account_owner(accounts.maintainer_list, program_id)?;
 
     check_account_data(
         accounts.validator_list,
         ValidatorList::required_bytes(max_validators),
         AccountType::Validator,
+    )?;
+    check_account_data(
+        accounts.validator_perf_list,
+        ValidatorPerfList::required_bytes(max_validators),
+        AccountType::ValidatorPerf,
     )?;
     check_account_data(
         accounts.maintainer_list,
@@ -1124,13 +1132,13 @@ pub fn process_migrate_to_v2(
         lido_version: Lido::VERSION,
         account_type: AccountType::Lido,
         validator_list: *accounts.validator_list.key,
+        validator_perf_list: *accounts.validator_perf_list.key,
         maintainer_list: *accounts.maintainer_list.key,
         fee_recipients: FeeRecipients {
             treasury_account: lido_v1.fee_recipients.treasury_account,
             developer_account: *accounts.developer_account.key,
         },
         reward_distribution,
-
         manager: lido_v1.manager,
         st_sol_mint: lido_v1.st_sol_mint,
         exchange_rate: lido_v1.exchange_rate,
@@ -1198,9 +1206,9 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
             block_production_rate,
         } => process_update_block_production_rate(
             program_id,
-            accounts,
             validator_index,
             block_production_rate,
+            accounts,
         ),
         LidoInstruction::WithdrawV2 {
             amount,

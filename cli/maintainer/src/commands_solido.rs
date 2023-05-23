@@ -76,6 +76,10 @@ pub struct CreateSolidoOutput {
     #[serde(serialize_with = "serialize_b58")]
     pub validator_list_address: Pubkey,
 
+    /// Data account that holds list of validators
+    #[serde(serialize_with = "serialize_b58")]
+    pub validator_perf_list_address: Pubkey,
+
     /// Data account that holds list of maintainers
     #[serde(serialize_with = "serialize_b58")]
     pub maintainer_list_address: Pubkey,
@@ -293,10 +297,11 @@ pub fn command_create_solido(
 
     config.sign_and_send_transaction(
         &instructions[..],
-        &[
+        &vec![
             config.signer,
             &*lido_signer,
             &*validator_list_signer,
+            &*validator_perf_list_signer,
             &*maintainer_list_signer,
         ],
     )?;
@@ -310,6 +315,7 @@ pub fn command_create_solido(
         treasury_account: treasury_keypair.pubkey(),
         developer_account: developer_keypair.pubkey(),
         validator_list_address: validator_list_signer.pubkey(),
+        validator_perf_list_address: validator_perf_list_signer.pubkey(),
         maintainer_list_address: maintainer_list_signer.pubkey(),
     };
     Ok(result)
@@ -1079,6 +1085,7 @@ pub fn command_deactivate_if_violates(
                 lido: *opts.solido_address(),
                 validator_vote_account_to_deactivate: *validator.pubkey(),
                 validator_list: solido.validator_list,
+                validator_perf_list: solido.validator_perf_list,
             },
             u32::try_from(validator_index).expect("Too many validators"),
         );
@@ -1248,6 +1255,7 @@ pub fn command_migrate_state_to_v2(
                 lido: *opts.solido_address(),
                 manager: multisig_address,
                 validator_list: *opts.validator_list_address(),
+                validator_perf_list: *opts.validator_perf_list_address(),
                 maintainer_list: *opts.maintainer_list_address(),
                 developer_account: *opts.developer_fee_address(),
             },

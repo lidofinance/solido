@@ -825,6 +825,10 @@ pub struct Lido {
     #[serde(serialize_with = "serialize_b58")]
     pub validator_list: Pubkey,
 
+    /// Validator performance readings account
+    #[serde(serialize_with = "serialize_b58")]
+    pub validator_perf_list: Pubkey,
+
     /// Maintainer list account
     ///
     /// Maintainers are granted low security risk privileges. Maintainers are
@@ -1598,6 +1602,7 @@ mod test_lido {
             metrics: Metrics::new(),
             criteria: Criteria::new(5, 0, 0),
             validator_list: Pubkey::new_unique(),
+            validator_perf_list: Pubkey::new_unique(),
             maintainer_list: Pubkey::new_unique(),
         };
         let mut data = Vec::new();

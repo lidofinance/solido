@@ -622,6 +622,10 @@ accounts_struct! {
             is_signer: false,
             is_writable: false,
         },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: true,
+        },
         pub validator_vote_account {
             is_signer: false,
             is_writable: false,
@@ -1001,6 +1005,10 @@ accounts_struct! {
             is_signer: false,
             is_writable: true,
         },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: false,
+        },
     }
 }
 
@@ -1056,6 +1064,10 @@ accounts_struct! {
         pub validator_list {
             is_signer: false,
             is_writable: true,
+        },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: false,
         },
         pub maintainer_list {
             is_signer: false,

@@ -881,6 +881,10 @@ cli_opt_struct! {
         #[clap(long)]
         validator_list_address: Pubkey,
 
+        /// Validator list data address
+        #[clap(long)]
+        validator_perf_list_address: Pubkey,
+
         /// Maintainer list data address
         #[clap(long)]
         maintainer_list_address: Pubkey,

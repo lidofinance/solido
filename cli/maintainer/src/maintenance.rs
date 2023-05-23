@@ -781,6 +781,7 @@ impl SolidoState {
                     lido: self.solido_address,
                     validator_vote_account_to_deactivate: *validator.pubkey(),
                     validator_list: self.solido.validator_list,
+                    validator_perf_list: self.solido.validator_perf_list,
                 },
                 u32::try_from(validator_index).expect("Too many validators"),
             );
@@ -916,6 +917,7 @@ impl SolidoState {
                     lido: self.solido_address,
                     validator_vote_account: *validator.pubkey(),
                     validator_list: self.solido.validator_list,
+                    validator_perf_list: self.solido.validator_perf_list,
                 },
                 u32::try_from(validator_index).expect("Too many validators"),
                 0,
