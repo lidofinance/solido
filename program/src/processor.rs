@@ -1051,7 +1051,7 @@ pub fn process_withdraw(
 }
 
 /// Migrate Solido state to version 2
-pub fn processor_migrate_to_v2(
+pub fn process_migrate_to_v2(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
     max_validators: u32,
@@ -1234,7 +1234,7 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
             max_validators,
             max_maintainers,
             max_commission_percentage,
-        } => processor_migrate_to_v2(
+        } => process_migrate_to_v2(
             program_id,
             reward_distribution,
             max_validators,
