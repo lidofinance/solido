@@ -86,7 +86,7 @@ pub fn process_initialize(
     check_account_data(
         accounts.validator_perf_list,
         ValidatorPerfList::required_bytes(max_validators),
-        AccountType::Validator,
+        AccountType::ValidatorPerf,
     )?;
     check_account_data(
         accounts.maintainer_list,
@@ -109,6 +109,9 @@ pub fn process_initialize(
 
     let mut validators = ValidatorList::new_default(0);
     validators.header.max_entries = max_validators;
+
+    let mut validator_perf = ValidatorPerfList::new_default(0);
+    validator_perf.header.max_entries = max_validators;
 
     let mut maintainers = MaintainerList::new_default(0);
     maintainers.header.max_entries = max_maintainers;
@@ -167,6 +170,7 @@ pub fn process_initialize(
     lido.check_is_st_sol_account(accounts.developer_account)?;
 
     validators.save(accounts.validator_list)?;
+    validator_perf.save(accounts.validator_perf_list)?;
     maintainers.save(accounts.maintainer_list)?;
     lido.save(accounts.lido)
 }
