@@ -1256,6 +1256,7 @@ impl Lido {
         let solido_list_address = match T::TYPE {
             AccountType::Validator => self.validator_list,
             AccountType::Maintainer => self.maintainer_list,
+            AccountType::ValidatorPerf => self.validator_perf_list,
             _ => {
                 msg!(
                     "Invalid account type {:?} when deserializing account list",

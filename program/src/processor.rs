@@ -9,8 +9,8 @@ use crate::{
     error::LidoError,
     instruction::{
         DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV2Info,
-        StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateExchangeRateAccountsInfoV2,
-        UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
+        StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateBlockProductionRateAccountsInfo,
+        UpdateExchangeRateAccountsInfoV2, UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
     },
     logic::{
         burn_st_sol, check_account_data, check_account_owner, check_mint, check_rent_exempt,
@@ -28,7 +28,7 @@ use crate::{
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
         AccountType, Criteria, ExchangeRate, FeeRecipients, Lido, LidoV1, ListEntry, Maintainer,
-        MaintainerList, RewardDistribution, StakeDeposit, Validator, ValidatorList,
+        MaintainerList, RewardDistribution, StakeDeposit, Validator, ValidatorList, ValidatorPerf,
         ValidatorPerfList,
     },
     token::{Lamports, Rational, StLamports},
@@ -628,12 +628,56 @@ pub fn process_update_exchange_rate(
 }
 
 pub fn process_update_block_production_rate(
+    program_id: &Pubkey,
+    block_production_rate: u8,
+    raw_accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts = UpdateBlockProductionRateAccountsInfo::try_from_slice(raw_accounts)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let block_production_rate = block_production_rate as u64;
+    let validator_vote_account_address = *accounts.validator_vote_account_to_update.key;
+
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let mut validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
+
+    // Find the existing perf record for the validator:
+    let perf_index = validator_perfs
+        .iter()
+        .position(|perf| perf.validator_vote_account_address == validator_vote_account_address);
+    // If there is no existing perf record, create a new one:
+    let perf_index = match perf_index {
+        None => {
+            validator_perfs.push(ValidatorPerf {
+                validator_vote_account_address,
+                block_production_rate,
+            })?;
+            (validator_perfs.len() as usize) - 1
+        }
+        Some(index) => index,
+    };
+    let perf = validator_perfs.get_mut(perf_index as u32, &validator_vote_account_address)?;
+
+    perf.block_production_rate = block_production_rate;
+    msg!(
+        "Updated block production rate for validator {} to {}.",
+        validator_vote_account_address,
+        block_production_rate
+    );
+
+    Ok(())
+}
+
+pub fn process_update_vote_success_rate(
     _program_id: &Pubkey,
-    _validator_index: u32,
     _block_production_rate: u8,
     _raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
-    unimplemented!("no no")
+    unimplemented!("not yet")
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -1206,14 +1250,11 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
             process_update_stake_account_balance(program_id, validator_index, accounts)
         }
         LidoInstruction::UpdateBlockProductionRate {
-            validator_index,
             block_production_rate,
-        } => process_update_block_production_rate(
-            program_id,
-            validator_index,
-            block_production_rate,
-            accounts,
-        ),
+        } => process_update_block_production_rate(program_id, block_production_rate, accounts),
+        LidoInstruction::UpdateVoteSuccessRate { vote_success_rate } => {
+            process_update_vote_success_rate(program_id, vote_success_rate, accounts)
+        }
         LidoInstruction::WithdrawV2 {
             amount,
             validator_index,
