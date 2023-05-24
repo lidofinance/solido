@@ -184,6 +184,7 @@ pub async fn send_transaction(
 pub struct SolidoWithLists {
     pub lido: Lido,
     pub validators: AccountList<Validator>,
+    pub validator_perfs: AccountList<ValidatorPerf>,
     pub maintainers: AccountList<Maintainer>,
 }
 
@@ -1197,6 +1198,42 @@ impl Context {
             .expect("Failed to withdraw inactive stake.");
     }
 
+    /// Update the validator's block production rate.
+    pub async fn try_update_validator_block_production_rate(
+        &mut self,
+        validator_vote_account: Pubkey,
+        new_block_production_rate: u8,
+    ) -> transport::Result<()> {
+        send_transaction(
+            &mut self.context,
+            &[instruction::update_block_production_rate(
+                &id(),
+                new_block_production_rate,
+                &instruction::UpdateBlockProductionRateAccountsMeta {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_update: validator_vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                    validator_perf_list: self.validator_perf_list.pubkey(),
+                },
+            )],
+            vec![],
+        )
+        .await
+    }
+
+    pub async fn update_validator_block_production_rate(
+        &mut self,
+        validator_vote_account: Pubkey,
+        new_block_production_rate: u8,
+    ) {
+        self.try_update_validator_block_production_rate(
+            validator_vote_account,
+            new_block_production_rate,
+        )
+        .await
+        .expect("Validator performance metrics could always be updated");
+    }
+
     pub async fn try_get_account(&mut self, address: Pubkey) -> Option<Account> {
         self.context
             .banks_client
@@ -1278,7 +1315,7 @@ impl Context {
             .get_account_list::<Validator>(lido.validator_list)
             .await
             .unwrap_or_else(|| AccountList::<Validator>::new_default(0));
-        let _validator_performances = self
+        let validator_perfs = self
             .get_account_list::<ValidatorPerf>(lido.validator_perf_list)
             .await
             .unwrap_or_else(|| AccountList::<ValidatorPerf>::new_default(0));
@@ -1290,6 +1327,7 @@ impl Context {
         SolidoWithLists {
             lido,
             validators,
+            validator_perfs,
             maintainers,
         }
     }
@@ -1403,6 +1441,22 @@ impl Context {
         .await
     }
 
+    pub async fn try_change_criteria(&mut self, new_criteria: &Criteria) -> transport::Result<()> {
+        send_transaction(
+            &mut self.context,
+            &[lido::instruction::change_criteria(
+                &id(),
+                &lido::instruction::ChangeCriteriaMeta {
+                    lido: self.solido.pubkey(),
+                    manager: self.manager.pubkey(),
+                },
+                new_criteria.clone(),
+            )],
+            vec![&self.manager],
+        )
+        .await
+    }
+
     pub async fn try_deactivate_if_violates(
         &mut self,
         vote_account: Pubkey,
@@ -1417,6 +1471,7 @@ impl Context {
                     lido: self.solido.pubkey(),
                     validator_vote_account_to_deactivate: vote_account,
                     validator_list: self.validator_list.pubkey(),
+                    validator_perf_list: self.validator_perf_list.pubkey(),
                 },
                 validator_index,
             )],
