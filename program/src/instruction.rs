@@ -154,11 +154,14 @@ pub enum LidoInstruction {
 
     /// Update the block production rate of a validator.
     UpdateBlockProductionRate {
-        // Index of a validator in validator list
-        #[allow(dead_code)]
-        validator_index: u32,
         #[allow(dead_code)]
         block_production_rate: u8,
+    },
+
+    /// Update the vote success rate of a validator.
+    UpdateVoteSuccessRate {
+        #[allow(dead_code)]
+        vote_success_rate: u8,
     },
 
     /// Withdraw a given amount of stSOL.
