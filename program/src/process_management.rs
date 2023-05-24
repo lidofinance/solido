@@ -8,7 +8,7 @@ use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, msg, 
 
 use crate::logic::check_rent_exempt;
 use crate::processor::StakeType;
-use crate::state::{Criteria, Lido};
+use crate::state::{Criteria, Lido, ValidatorPerf};
 use crate::vote_state::PartialVoteState;
 use crate::{
     error::LidoError,
@@ -145,6 +145,13 @@ pub fn process_deactivate_if_violates(
     let accounts = DeactivateIfViolatesInfo::try_from_slice(accounts_raw)?;
     let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
 
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
+
     let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
     let mut validators = lido.deserialize_account_list_info::<Validator>(
         program_id,
@@ -161,11 +168,24 @@ pub fn process_deactivate_if_violates(
         return Ok(());
     }
 
+    let validator_perf = validator_perfs.iter().find(|perf| {
+        &perf.validator_vote_account_address == accounts.validator_vote_account_to_deactivate.key
+    });
+
     if accounts.validator_vote_account_to_deactivate.owner == &solana_program::vote::program::id() {
         let data = accounts.validator_vote_account_to_deactivate.data.borrow();
         let commission = get_vote_account_commission(&data)?;
 
-        if commission <= lido.criteria.max_commission {
+        let does_violate = match validator_perf {
+            Some(validator_perf) => {
+                validator_perf.block_production_rate
+                    < (lido.criteria.min_block_production_rate as u64)
+            }
+            None => false,
+        };
+
+        if commission <= lido.criteria.max_commission && !does_violate {
+            // Does not violate.
             return Ok(());
         }
     } else {
