@@ -1278,6 +1278,10 @@ impl Context {
             .get_account_list::<Validator>(lido.validator_list)
             .await
             .unwrap_or_else(|| AccountList::<Validator>::new_default(0));
+        let _validator_performances = self
+            .get_account_list::<ValidatorPerf>(lido.validator_perf_list)
+            .await
+            .unwrap_or_else(|| AccountList::<ValidatorPerf>::new_default(0));
         let maintainers = self
             .get_account_list::<Maintainer>(lido.maintainer_list)
             .await
