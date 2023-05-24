@@ -637,15 +637,13 @@ accounts_struct! {
 
 pub fn update_block_production_rate(
     program_id: &Pubkey,
-    accounts: &UpdateBlockProductionRateAccountsMeta,
-    validator_index: u32,
     block_production_rate: u8,
+    accounts: &UpdateBlockProductionRateAccountsMeta,
 ) -> Instruction {
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),
         data: LidoInstruction::UpdateBlockProductionRate {
-            validator_index,
             block_production_rate,
         }
         .to_vec(),
