@@ -552,7 +552,7 @@ impl ValidatorPerf {}
 impl Sealed for ValidatorPerf {}
 
 impl Pack for ValidatorPerf {
-    const LEN: usize = 8;
+    const LEN: usize = 40;
     fn pack_into_slice(&self, data: &mut [u8]) {
         let mut data = data;
         BorshSerialize::serialize(&self, &mut data).unwrap();
