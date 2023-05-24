@@ -650,6 +650,18 @@ pub fn update_block_production_rate(
     }
 }
 
+pub fn update_vote_success_rate(
+    program_id: &Pubkey,
+    vote_success_rate: u8,
+    accounts: &UpdateVoteSuccessRateAccountsMeta,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::UpdateVoteSuccessRate { vote_success_rate }.to_vec(),
+    }
+}
+
 // Changes the Fee spec
 // The new Fee structure is passed by argument and the recipients are passed here
 accounts_struct! {
