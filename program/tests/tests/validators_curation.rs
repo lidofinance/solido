@@ -1,5 +1,5 @@
 use lido::error::LidoError;
-use lido::state::ListEntry;
+use lido::state::{ListEntry, Criteria};
 
 use solana_program_test::tokio;
 use solana_sdk::signature::Keypair;
@@ -45,6 +45,39 @@ async fn test_curate_by_max_commission_percentage() {
     // check validator is deactivated
     let validator = &context.get_solido().await.validators.entries[0];
     assert_eq!(validator.active, false);
+}
+
+#[tokio::test]
+async fn test_curate_by_min_block_production_rate() {
+    // Given a Solido context and an active validator:
+    let mut context = Context::new_with_maintainer_and_validator().await;
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(validator.active);
+
+    // When Solido imposes a minimum block production rate:
+    let result = context
+        .try_change_criteria(&Criteria {
+            min_block_production_rate: 99,
+            ..context.criteria
+        })
+        .await;
+    assert!(result.is_ok());
+
+    // And when the validator's block production rate is observed:
+    let result = context
+        .try_update_validator_block_production_rate(*validator.pubkey(), 98)
+        .await;
+    assert!(result.is_ok());
+
+    // And when the validator's block production rate is below the minimum:
+    let result = context
+        .try_deactivate_if_violates(*validator.pubkey())
+        .await;
+    assert!(result.is_ok());
+
+    // Then the validators with a lower block production rate are deactivated:
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(!validator.active);
 }
 
 #[tokio::test]
