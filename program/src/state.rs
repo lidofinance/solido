@@ -845,7 +845,7 @@ impl Lido {
     /// Size of a serialized `Lido` struct excluding validators and maintainers.
     ///
     /// To update this, run the tests and replace the value here with the test output.
-    pub const LEN: usize = 420;
+    pub const LEN: usize = 452;
 
     pub fn deserialize_lido(program_id: &Pubkey, lido: &AccountInfo) -> Result<Lido, ProgramError> {
         check_account_owner(lido, program_id)?;
