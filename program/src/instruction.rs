@@ -618,6 +618,10 @@ accounts_struct! {
             is_signer: false,
             is_writable: true,
         },
+        pub validator_vote_account_to_update {
+            is_signer: false,
+            is_writable: false,
+        },
         pub validator_list {
             is_signer: false,
             is_writable: false,
@@ -626,9 +630,28 @@ accounts_struct! {
             is_signer: false,
             is_writable: true,
         },
-        pub validator_vote_account {
+
+        const sysvar_clock = sysvar::clock::id(),
+    }
+}
+
+accounts_struct! {
+    UpdateVoteSuccessRateAccountsMeta, UpdateVoteSuccessRateAccountsInfo {
+        pub lido {
+            is_signer: false,
+            is_writable: true,
+        },
+        pub validator_vote_account_to_update {
             is_signer: false,
             is_writable: false,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: true,
         },
 
         const sysvar_clock = sysvar::clock::id(),
