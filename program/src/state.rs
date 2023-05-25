@@ -369,6 +369,9 @@ pub struct ValidatorPerf {
 
     /// The number of slots the validator has produced in the last epoch.
     pub block_production_rate: u64,
+
+    /// Ratio of successful votes to total votes.
+    pub vote_success_rate: u64,
 }
 
 /// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
@@ -567,7 +570,8 @@ impl Default for ValidatorPerf {
     fn default() -> Self {
         ValidatorPerf {
             validator_vote_account_address: Pubkey::default(),
-            block_production_rate: 0,
+            block_production_rate: u64::MAX as _,
+            vote_success_rate: u64::MAX as _,
         }
     }
 }

@@ -655,6 +655,7 @@ pub fn process_update_block_production_rate(
             validator_perfs.push(ValidatorPerf {
                 validator_vote_account_address,
                 block_production_rate,
+                ..Default::default()
             })?;
             (validator_perfs.len() as usize) - 1
         }
