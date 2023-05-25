@@ -114,6 +114,39 @@ async fn test_curate_by_min_vote_success_rate() {
 }
 
 #[tokio::test]
+async fn test_curate_by_min_uptime() {
+    // Given a Solido context and an active validator:
+    let mut context = Context::new_with_maintainer_and_validator().await;
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(validator.active);
+
+    // When Solido imposes a minimum uptime:
+    let result = context
+        .try_change_criteria(&Criteria {
+            min_uptime: 99,
+            ..context.criteria
+        })
+        .await;
+    assert!(result.is_ok());
+
+    // And when the validator's uptime for the epoch is observed:
+    let result = context
+        .try_update_validator_uptime(*validator.pubkey(), 98)
+        .await;
+    assert!(result.is_ok());
+
+    // And when the validator's vote success rate is below the minimum:
+    let result = context
+        .try_deactivate_if_violates(*validator.pubkey())
+        .await;
+    assert!(result.is_ok());
+
+    // Then the validators with a lower vote success rate are deactivated:
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(!validator.active);
+}
+
+#[tokio::test]
 async fn test_close_vote_account() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     let vote_account = context.validator.as_ref().unwrap().vote_account;

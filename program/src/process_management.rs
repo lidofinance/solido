@@ -182,6 +182,7 @@ pub fn process_deactivate_if_violates(
                     >= (lido.criteria.min_block_production_rate as u64)
                     && validator_perf.vote_success_rate
                         >= (lido.criteria.min_vote_success_rate as u64)
+                    && validator_perf.uptime >= (lido.criteria.min_uptime as u64)
             }
             None => true,
         };
