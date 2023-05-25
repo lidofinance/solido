@@ -10,7 +10,8 @@ use crate::{
     instruction::{
         DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV2Info,
         StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateBlockProductionRateAccountsInfo,
-        UpdateExchangeRateAccountsInfoV2, UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
+        UpdateExchangeRateAccountsInfoV2, UpdateStakeAccountBalanceInfo,
+        UpdateVoteSuccessRateAccountsInfo, WithdrawAccountsInfoV2,
     },
     logic::{
         burn_st_sol, check_account_data, check_account_owner, check_mint, check_rent_exempt,
@@ -674,11 +675,49 @@ pub fn process_update_block_production_rate(
 }
 
 pub fn process_update_vote_success_rate(
-    _program_id: &Pubkey,
-    _block_production_rate: u8,
-    _raw_accounts: &[AccountInfo],
+    program_id: &Pubkey,
+    vote_success_rate: u8,
+    raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
-    unimplemented!("not yet")
+    let accounts = UpdateVoteSuccessRateAccountsInfo::try_from_slice(raw_accounts)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let vote_success_rate = vote_success_rate as u64;
+    let validator_vote_account_address = *accounts.validator_vote_account_to_update.key;
+
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let mut validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
+
+    // Find the existing perf record for the validator:
+    let perf_index = validator_perfs
+        .iter()
+        .position(|perf| perf.validator_vote_account_address == validator_vote_account_address);
+    // If there is no existing perf record, create a new one:
+    let perf_index = match perf_index {
+        None => {
+            validator_perfs.push(ValidatorPerf {
+                validator_vote_account_address,
+                vote_success_rate,
+                ..Default::default()
+            })?;
+            (validator_perfs.len() as usize) - 1
+        }
+        Some(index) => index,
+    };
+    let perf = validator_perfs.get_mut(perf_index as u32, &validator_vote_account_address)?;
+
+    perf.vote_success_rate = vote_success_rate;
+    msg!(
+        "Updated vote success rate for validator {} to {}.",
+        validator_vote_account_address,
+        vote_success_rate
+    );
+
+    Ok(())
 }
 
 #[derive(PartialEq, Clone, Copy)]
