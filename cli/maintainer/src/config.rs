@@ -264,6 +264,10 @@ cli_opt_struct! {
         #[clap(long, value_name = "int")]
         min_block_production_rate: u8,
 
+        /// The minimum block production rate a validator must have to not be deactivated.
+        #[clap(long, value_name = "int")]
+        min_uptime: u8,
+
         // See also the docs section of `create-solido` in main.rs for a description
         // of the fee shares.
         /// Treasury fee share of the rewards.

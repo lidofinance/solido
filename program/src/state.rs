@@ -754,11 +754,11 @@ pub struct Criteria {
     /// If a validator has the commission higher than this, then it gets deactivated.
     pub max_commission: u8,
 
-    /// If a validator has `vote_success_rate` lower than this, then it gets deactivated.
-    pub min_vote_success_rate: u8,
-
     /// If a validator has `block_production_rate` lower than this, then it gets deactivated.
     pub min_block_production_rate: u8,
+
+    /// If a validator has `vote_success_rate` lower than this, then it gets deactivated.
+    pub min_vote_success_rate: u8,
 
     /// If a validator has the uptime lower than this, then it gets deactivated.
     pub min_uptime: u8,
