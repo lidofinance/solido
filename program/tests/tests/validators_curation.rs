@@ -1,5 +1,5 @@
 use lido::error::LidoError;
-use lido::state::{ListEntry, Criteria};
+use lido::state::{Criteria, ListEntry};
 
 use solana_program_test::tokio;
 use solana_sdk::signature::Keypair;
@@ -63,7 +63,7 @@ async fn test_curate_by_min_block_production_rate() {
         .await;
     assert!(result.is_ok());
 
-    // And when the validator's block production rate is observed:
+    // And when the validator's block production rate for the epoch is observed:
     let result = context
         .try_update_validator_block_production_rate(*validator.pubkey(), 98)
         .await;
@@ -76,6 +76,39 @@ async fn test_curate_by_min_block_production_rate() {
     assert!(result.is_ok());
 
     // Then the validators with a lower block production rate are deactivated:
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(!validator.active);
+}
+
+#[tokio::test]
+async fn test_curate_by_min_vote_success_rate() {
+    // Given a Solido context and an active validator:
+    let mut context = Context::new_with_maintainer_and_validator().await;
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(validator.active);
+
+    // When Solido imposes a minimum vote success rate:
+    let result = context
+        .try_change_criteria(&Criteria {
+            min_vote_success_rate: 99,
+            ..context.criteria
+        })
+        .await;
+    assert!(result.is_ok());
+
+    // And when the validator's vote success rate for the epoch is observed:
+    let result = context
+        .try_update_validator_vote_success_rate(*validator.pubkey(), 98)
+        .await;
+    assert!(result.is_ok());
+
+    // And when the validator's vote success rate is below the minimum:
+    let result = context
+        .try_deactivate_if_violates(*validator.pubkey())
+        .await;
+    assert!(result.is_ok());
+
+    // Then the validators with a lower vote success rate are deactivated:
     let validator = &context.get_solido().await.validators.entries[0];
     assert!(!validator.active);
 }
