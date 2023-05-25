@@ -1125,8 +1125,9 @@ pub fn command_change_criteria(
         },
         Criteria {
             max_commission: *opts.max_commission(),
-            min_vote_success_rate: *opts.min_vote_success_rate(),
             min_block_production_rate: *opts.min_block_production_rate(),
+            min_vote_success_rate: *opts.min_vote_success_rate(),
+            min_uptime: *opts.min_uptime(),
         },
     );
     propose_instruction(

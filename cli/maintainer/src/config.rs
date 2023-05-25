@@ -501,13 +501,17 @@ cli_opt_struct! {
         #[clap(long, value_name = "percentage")]
         max_commission: u8,
 
+        /// Min block production rate that a validator must uphold.
+        #[clap(long, value_name = "rate")]
+        min_block_production_rate: u8,
+
         /// Min vote success rate that a validator must uphold.
         #[clap(long, value_name = "rate")]
         min_vote_success_rate: u8,
 
-        /// Min block production rate that a validator must uphold.
+        /// Min uptime that a validator must maintain.
         #[clap(long, value_name = "rate")]
-        min_block_production_rate: u8,
+        min_uptime: u8,
 
         /// Multisig instance.
         #[clap(long, value_name = "address")]
