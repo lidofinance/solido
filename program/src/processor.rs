@@ -720,6 +720,52 @@ pub fn process_update_vote_success_rate(
     Ok(())
 }
 
+pub fn process_update_uptime(
+    program_id: &Pubkey,
+    uptime: u8,
+    raw_accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts = UpdateVoteSuccessRateAccountsInfo::try_from_slice(raw_accounts)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let uptime = uptime as u64;
+    let validator_vote_account_address = *accounts.validator_vote_account_to_update.key;
+
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let mut validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
+
+    // Find the existing perf record for the validator:
+    let perf_index = validator_perfs
+        .iter()
+        .position(|perf| perf.validator_vote_account_address == validator_vote_account_address);
+    // If there is no existing perf record, create a new one:
+    let perf_index = match perf_index {
+        None => {
+            validator_perfs.push(ValidatorPerf {
+                validator_vote_account_address,
+                uptime,
+                ..Default::default()
+            })?;
+            (validator_perfs.len() as usize) - 1
+        }
+        Some(index) => index,
+    };
+    let perf = validator_perfs.get_mut(perf_index as u32, &validator_vote_account_address)?;
+
+    perf.uptime = uptime;
+    msg!(
+        "Updated uptime for validator {} to {}.",
+        validator_vote_account_address,
+        uptime
+    );
+
+    Ok(())
+}
+
 #[derive(PartialEq, Clone, Copy)]
 pub enum StakeType {
     Stake,
@@ -1294,6 +1340,9 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         } => process_update_block_production_rate(program_id, block_production_rate, accounts),
         LidoInstruction::UpdateVoteSuccessRate { vote_success_rate } => {
             process_update_vote_success_rate(program_id, vote_success_rate, accounts)
+        }
+        LidoInstruction::UpdateUptime { uptime } => {
+            process_update_uptime(program_id, uptime, accounts)
         }
         LidoInstruction::WithdrawV2 {
             amount,

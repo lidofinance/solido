@@ -164,6 +164,12 @@ pub enum LidoInstruction {
         vote_success_rate: u8,
     },
 
+    /// Update the uptime of a validator.
+    UpdateUptime {
+        #[allow(dead_code)]
+        uptime: u8,
+    },
+
     /// Withdraw a given amount of stSOL.
     ///
     /// Caller provides some `amount` of StLamports that are to be burned in
@@ -661,6 +667,29 @@ accounts_struct! {
     }
 }
 
+accounts_struct! {
+    UpdateUptimeAccountsMeta, UpdateUptimeAccountsInfo {
+        pub lido {
+            is_signer: false,
+            is_writable: true,
+        },
+        pub validator_vote_account_to_update {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: true,
+        },
+
+        const sysvar_clock = sysvar::clock::id(),
+    }
+}
+
 pub fn update_block_production_rate(
     program_id: &Pubkey,
     block_production_rate: u8,
@@ -685,6 +714,18 @@ pub fn update_vote_success_rate(
         program_id: *program_id,
         accounts: accounts.to_vec(),
         data: LidoInstruction::UpdateVoteSuccessRate { vote_success_rate }.to_vec(),
+    }
+}
+
+pub fn update_uptime(
+    program_id: &Pubkey,
+    uptime: u8,
+    accounts: &UpdateUptimeAccountsMeta,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::UpdateUptime { uptime }.to_vec(),
     }
 }
 

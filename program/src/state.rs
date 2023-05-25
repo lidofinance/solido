@@ -372,6 +372,9 @@ pub struct ValidatorPerf {
 
     /// Ratio of successful votes to total votes.
     pub vote_success_rate: u64,
+
+    /// Ratio of how long the validator has been available to the total time in the epoch.
+    pub uptime: u64,
 }
 
 /// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
@@ -555,7 +558,7 @@ impl ValidatorPerf {}
 impl Sealed for ValidatorPerf {}
 
 impl Pack for ValidatorPerf {
-    const LEN: usize = 48;
+    const LEN: usize = 56;
     fn pack_into_slice(&self, data: &mut [u8]) {
         let mut data = data;
         BorshSerialize::serialize(&self, &mut data).unwrap();
@@ -572,6 +575,7 @@ impl Default for ValidatorPerf {
             validator_vote_account_address: Pubkey::default(),
             block_production_rate: u64::MAX as _,
             vote_success_rate: u64::MAX as _,
+            uptime: u64::MAX as _,
         }
     }
 }
@@ -755,6 +759,9 @@ pub struct Criteria {
 
     /// If a validator has `block_production_rate` lower than this, then it gets deactivated.
     pub min_block_production_rate: u8,
+
+    /// If a validator has the uptime lower than this, then it gets deactivated.
+    pub min_uptime: u8,
 }
 
 impl Default for Criteria {
@@ -763,6 +770,7 @@ impl Default for Criteria {
             max_commission: 100,
             min_vote_success_rate: 0,
             min_block_production_rate: 0,
+            min_uptime: 0,
         }
     }
 }
@@ -777,6 +785,7 @@ impl Criteria {
             max_commission,
             min_vote_success_rate,
             min_block_production_rate,
+            min_uptime: 0,
         }
     }
 }
