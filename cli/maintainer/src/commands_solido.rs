@@ -537,19 +537,35 @@ impl fmt::Display for ShowSolidoOutput {
         writeln!(f, "\nFee recipients:")?;
         writeln!(
             f,
-            "Treasury SPL token account:      {}",
+            "  Treasury SPL token account:      {}",
             self.solido.fee_recipients.treasury_account
         )?;
         writeln!(
             f,
-            "Developer fee SPL token account: {}",
+            "  Developer fee SPL token account: {}",
             self.solido.fee_recipients.developer_account
         )?;
 
+        writeln!(f, "\nValidator curation criteria:")?;
         writeln!(
             f,
-            "Max validation commission: {}%",
+            "  Max validation commission: {}%",
             self.solido.criteria.max_commission,
+        )?;
+        writeln!(
+            f,
+            "  Min block production rate: {}/epoch",
+            self.solido.criteria.min_block_production_rate,
+        )?;
+        writeln!(
+            f,
+            "  Min vote success rate:     {}/epoch",
+            self.solido.criteria.min_vote_success_rate,
+        )?;
+        writeln!(
+            f,
+            "  Min uptime:                {}s/epoch",
+            self.solido.criteria.min_uptime,
         )?;
 
         writeln!(f, "\nMetrics:")?;
