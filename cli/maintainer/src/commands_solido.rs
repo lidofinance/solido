@@ -546,28 +546,6 @@ impl fmt::Display for ShowSolidoOutput {
             self.solido.fee_recipients.developer_account
         )?;
 
-        writeln!(f, "\nValidator curation criteria:")?;
-        writeln!(
-            f,
-            "  Max validation commission: {}%",
-            self.solido.criteria.max_commission,
-        )?;
-        writeln!(
-            f,
-            "  Min block production rate: {}/epoch",
-            self.solido.criteria.min_block_production_rate,
-        )?;
-        writeln!(
-            f,
-            "  Min vote success rate:     {}/epoch",
-            self.solido.criteria.min_vote_success_rate,
-        )?;
-        writeln!(
-            f,
-            "  Min uptime:                {}s/epoch",
-            self.solido.criteria.min_uptime,
-        )?;
-
         writeln!(f, "\nMetrics:")?;
         writeln!(
             f,
@@ -617,6 +595,28 @@ impl fmt::Display for ShowSolidoOutput {
                 count
             )?;
         }
+
+        writeln!(f, "\nValidator curation criteria:")?;
+        writeln!(
+            f,
+            "  Max validation commission: {}%",
+            self.solido.criteria.max_commission,
+        )?;
+        writeln!(
+            f,
+            "  Min block production rate: {}/epoch",
+            self.solido.criteria.min_block_production_rate,
+        )?;
+        writeln!(
+            f,
+            "  Min vote success rate:     {}/epoch",
+            self.solido.criteria.min_vote_success_rate,
+        )?;
+        writeln!(
+            f,
+            "  Min uptime:                {}s/epoch",
+            self.solido.criteria.min_uptime,
+        )?;
 
         writeln!(f, "\nValidator list {}", self.solido.validator_list)?;
         writeln!(
