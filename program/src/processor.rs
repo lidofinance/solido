@@ -160,7 +160,7 @@ pub fn process_initialize(
             developer_account: *accounts.developer_account.key,
         },
         metrics: Metrics::new(),
-        criteria: Criteria::default(),
+        criteria,
         validator_list: *accounts.validator_list.key,
         validator_perf_list: *accounts.validator_perf_list.key,
         maintainer_list: *accounts.maintainer_list.key,
