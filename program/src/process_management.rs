@@ -176,15 +176,17 @@ pub fn process_deactivate_if_violates(
         let data = accounts.validator_vote_account_to_deactivate.data.borrow();
         let commission = get_vote_account_commission(&data)?;
 
-        let does_violate = match validator_perf {
+        let does_perform_well = match validator_perf {
             Some(validator_perf) => {
                 validator_perf.block_production_rate
-                    < (lido.criteria.min_block_production_rate as u64)
+                    >= (lido.criteria.min_block_production_rate as u64)
+                    && validator_perf.vote_success_rate
+                        >= (lido.criteria.min_vote_success_rate as u64)
             }
-            None => false,
+            None => true,
         };
 
-        if commission <= lido.criteria.max_commission && !does_violate {
+        if commission <= lido.criteria.max_commission && does_perform_well {
             // Does not violate.
             return Ok(());
         }
