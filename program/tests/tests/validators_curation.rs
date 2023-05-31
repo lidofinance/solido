@@ -147,6 +147,11 @@ async fn test_curate_by_min_uptime() {
 }
 
 #[tokio::test]
+async fn test_block_production_rate_updates() {
+    assert!(false);
+}
+
+#[tokio::test]
 async fn test_close_vote_account() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     let vote_account = context.validator.as_ref().unwrap().vote_account;
