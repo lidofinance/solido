@@ -148,17 +148,74 @@ async fn test_curate_by_min_uptime() {
 
 #[tokio::test]
 async fn test_update_block_production_rate() {
-    assert!(false);
+    // Given a Solido context and an active validator:
+    let mut context = Context::new_with_maintainer_and_validator().await;
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(validator.active);
+
+    // When an epoch passes, and the validator's block production rate is observed:
+    let result = context
+        .try_update_validator_block_production_rate(*validator.pubkey(), 98)
+        .await;
+    assert!(result.is_ok());
+
+    // Then the validator's block production rate is updated:
+    let solido = &context.get_solido().await;
+    let perf = &solido
+        .validator_perfs
+        .entries
+        .iter()
+        .find(|x| x.validator_vote_account_address == *validator.pubkey())
+        .unwrap();
+    assert!(perf.block_production_rate == 98);
 }
 
 #[tokio::test]
 async fn test_update_vote_success_rate() {
-    assert!(false);
+    // Given a Solido context and an active validator:
+    let mut context = Context::new_with_maintainer_and_validator().await;
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(validator.active);
+
+    // When an epoch passes, and the validator's vote success rate is observed:
+    let result = context
+        .try_update_validator_vote_success_rate(*validator.pubkey(), 98)
+        .await;
+    assert!(result.is_ok());
+
+    // Then the validator's vote success rate is updated:
+    let solido = &context.get_solido().await;
+    let perf = &solido
+        .validator_perfs
+        .entries
+        .iter()
+        .find(|x| x.validator_vote_account_address == *validator.pubkey())
+        .unwrap();
+    assert!(perf.vote_success_rate == 98);
 }
 
 #[tokio::test]
 async fn test_update_uptime() {
-    assert!(false);
+    // Given a Solido context and an active validator:
+    let mut context = Context::new_with_maintainer_and_validator().await;
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(validator.active);
+
+    // When an epoch passes, and the validator's uptime is observed:
+    let result = context
+        .try_update_validator_uptime(*validator.pubkey(), 98)
+        .await;
+    assert!(result.is_ok());
+
+    // Then the validator's uptime is updated:
+    let solido = &context.get_solido().await;
+    let perf = &solido
+        .validator_perfs
+        .entries
+        .iter()
+        .find(|x| x.validator_vote_account_address == *validator.pubkey())
+        .unwrap();
+    assert!(perf.uptime == 98);
 }
 
 #[tokio::test]
