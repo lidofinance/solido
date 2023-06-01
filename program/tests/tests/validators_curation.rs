@@ -147,7 +147,17 @@ async fn test_curate_by_min_uptime() {
 }
 
 #[tokio::test]
-async fn test_block_production_rate_updates() {
+async fn test_update_block_production_rate() {
+    assert!(false);
+}
+
+#[tokio::test]
+async fn test_update_vote_success_rate() {
+    assert!(false);
+}
+
+#[tokio::test]
+async fn test_update_uptime() {
     assert!(false);
 }
 
