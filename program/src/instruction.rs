@@ -152,20 +152,12 @@ pub enum LidoInstruction {
     /// This can be called by anybody.
     UpdateExchangeRateV2,
 
-    /// Update the block production rate of a validator.
-    UpdateBlockProductionRate {
+    /// Update the off-chain performance metrics for a validator.
+    UpdateValidatorPerf {
         #[allow(dead_code)]
         block_production_rate: u8,
-    },
-
-    /// Update the vote success rate of a validator.
-    UpdateVoteSuccessRate {
         #[allow(dead_code)]
         vote_success_rate: u8,
-    },
-
-    /// Update the uptime of a validator.
-    UpdateUptime {
         #[allow(dead_code)]
         uptime: u8,
     },
@@ -622,7 +614,7 @@ pub fn update_exchange_rate(
 }
 
 accounts_struct! {
-    UpdateBlockProductionRateAccountsMeta, UpdateBlockProductionRateAccountsInfo {
+    UpdateValidatorPerfAccountsMeta, UpdateValidatorPerfAccountsInfo {
         pub lido {
             is_signer: false,
             is_writable: true,
@@ -644,88 +636,22 @@ accounts_struct! {
     }
 }
 
-accounts_struct! {
-    UpdateVoteSuccessRateAccountsMeta, UpdateVoteSuccessRateAccountsInfo {
-        pub lido {
-            is_signer: false,
-            is_writable: true,
-        },
-        pub validator_vote_account_to_update {
-            is_signer: false,
-            is_writable: false,
-        },
-        pub validator_list {
-            is_signer: false,
-            is_writable: false,
-        },
-        pub validator_perf_list {
-            is_signer: false,
-            is_writable: true,
-        },
-
-        const sysvar_clock = sysvar::clock::id(),
-    }
-}
-
-accounts_struct! {
-    UpdateUptimeAccountsMeta, UpdateUptimeAccountsInfo {
-        pub lido {
-            is_signer: false,
-            is_writable: true,
-        },
-        pub validator_vote_account_to_update {
-            is_signer: false,
-            is_writable: false,
-        },
-        pub validator_list {
-            is_signer: false,
-            is_writable: false,
-        },
-        pub validator_perf_list {
-            is_signer: false,
-            is_writable: true,
-        },
-
-        const sysvar_clock = sysvar::clock::id(),
-    }
-}
-
-pub fn update_block_production_rate(
+pub fn update_validator_perf(
     program_id: &Pubkey,
     block_production_rate: u8,
-    accounts: &UpdateBlockProductionRateAccountsMeta,
+    vote_success_rate: u8,
+    uptime: u8,
+    accounts: &UpdateValidatorPerfAccountsMeta,
 ) -> Instruction {
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),
-        data: LidoInstruction::UpdateBlockProductionRate {
+        data: LidoInstruction::UpdateValidatorPerf {
             block_production_rate,
+            vote_success_rate,
+            uptime,
         }
         .to_vec(),
-    }
-}
-
-pub fn update_vote_success_rate(
-    program_id: &Pubkey,
-    vote_success_rate: u8,
-    accounts: &UpdateVoteSuccessRateAccountsMeta,
-) -> Instruction {
-    Instruction {
-        program_id: *program_id,
-        accounts: accounts.to_vec(),
-        data: LidoInstruction::UpdateVoteSuccessRate { vote_success_rate }.to_vec(),
-    }
-}
-
-pub fn update_uptime(
-    program_id: &Pubkey,
-    uptime: u8,
-    accounts: &UpdateUptimeAccountsMeta,
-) -> Instruction {
-    Instruction {
-        program_id: *program_id,
-        accounts: accounts.to_vec(),
-        data: LidoInstruction::UpdateUptime { uptime }.to_vec(),
     }
 }
 

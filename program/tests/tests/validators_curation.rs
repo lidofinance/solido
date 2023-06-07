@@ -10,6 +10,7 @@ use testlib::solido_context::Context;
 #[tokio::test]
 async fn test_curate_by_max_commission_percentage() {
     let mut context = Context::new_with_maintainer_and_validator().await;
+    context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
 
     // increase max_commission_percentage
@@ -51,6 +52,7 @@ async fn test_curate_by_max_commission_percentage() {
 async fn test_curate_by_min_block_production_rate() {
     // Given a Solido context and an active validator:
     let mut context = Context::new_with_maintainer_and_validator().await;
+    context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
     assert!(validator.active);
 
@@ -65,7 +67,7 @@ async fn test_curate_by_min_block_production_rate() {
 
     // And when the validator's block production rate for the epoch is observed:
     let result = context
-        .try_update_validator_block_production_rate(*validator.pubkey(), 98)
+        .try_update_validator_perf(*validator.pubkey(), 98, 0, 0)
         .await;
     assert!(result.is_ok());
 
@@ -84,6 +86,7 @@ async fn test_curate_by_min_block_production_rate() {
 async fn test_curate_by_min_vote_success_rate() {
     // Given a Solido context and an active validator:
     let mut context = Context::new_with_maintainer_and_validator().await;
+    context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
     assert!(validator.active);
 
@@ -98,7 +101,7 @@ async fn test_curate_by_min_vote_success_rate() {
 
     // And when the validator's vote success rate for the epoch is observed:
     let result = context
-        .try_update_validator_vote_success_rate(*validator.pubkey(), 98)
+        .try_update_validator_perf(*validator.pubkey(), 0, 98, 0)
         .await;
     assert!(result.is_ok());
 
@@ -117,6 +120,7 @@ async fn test_curate_by_min_vote_success_rate() {
 async fn test_curate_by_min_uptime() {
     // Given a Solido context and an active validator:
     let mut context = Context::new_with_maintainer_and_validator().await;
+    context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
     assert!(validator.active);
 
@@ -131,7 +135,7 @@ async fn test_curate_by_min_uptime() {
 
     // And when the validator's uptime for the epoch is observed:
     let result = context
-        .try_update_validator_uptime(*validator.pubkey(), 98)
+        .try_update_validator_perf(*validator.pubkey(), 0, 0, 98)
         .await;
     assert!(result.is_ok());
 
@@ -150,12 +154,13 @@ async fn test_curate_by_min_uptime() {
 async fn test_update_block_production_rate() {
     // Given a Solido context and an active validator:
     let mut context = Context::new_with_maintainer_and_validator().await;
+    context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
     assert!(validator.active);
 
     // When an epoch passes, and the validator's block production rate is observed:
     let result = context
-        .try_update_validator_block_production_rate(*validator.pubkey(), 98)
+        .try_update_validator_perf(*validator.pubkey(), 98, 0, 0)
         .await;
     assert!(result.is_ok());
 
@@ -174,12 +179,13 @@ async fn test_update_block_production_rate() {
 async fn test_update_vote_success_rate() {
     // Given a Solido context and an active validator:
     let mut context = Context::new_with_maintainer_and_validator().await;
+    context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
     assert!(validator.active);
 
     // When an epoch passes, and the validator's vote success rate is observed:
     let result = context
-        .try_update_validator_vote_success_rate(*validator.pubkey(), 98)
+        .try_update_validator_perf(*validator.pubkey(), 0, 98, 0)
         .await;
     assert!(result.is_ok());
 
@@ -198,12 +204,13 @@ async fn test_update_vote_success_rate() {
 async fn test_update_uptime() {
     // Given a Solido context and an active validator:
     let mut context = Context::new_with_maintainer_and_validator().await;
+    context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
     assert!(validator.active);
 
     // When an epoch passes, and the validator's uptime is observed:
     let result = context
-        .try_update_validator_uptime(*validator.pubkey(), 98)
+        .try_update_validator_perf(*validator.pubkey(), 0, 0, 98)
         .await;
     assert!(result.is_ok());
 
