@@ -367,6 +367,10 @@ pub struct ValidatorPerf {
     #[serde(rename = "pubkey")]
     pub validator_vote_account_address: Pubkey,
 
+    /// The epoch in which the off-chain part
+    /// of the validator's performance was computed.
+    pub computed_in_epoch: Epoch,
+
     /// The number of slots the validator has produced in the last epoch.
     pub block_production_rate: u64,
 
@@ -558,7 +562,7 @@ impl ValidatorPerf {}
 impl Sealed for ValidatorPerf {}
 
 impl Pack for ValidatorPerf {
-    const LEN: usize = 56;
+    const LEN: usize = 64;
     fn pack_into_slice(&self, data: &mut [u8]) {
         let mut data = data;
         BorshSerialize::serialize(&self, &mut data).unwrap();
@@ -573,6 +577,7 @@ impl Default for ValidatorPerf {
     fn default() -> Self {
         ValidatorPerf {
             validator_vote_account_address: Pubkey::default(),
+            computed_in_epoch: Epoch::default(),
             block_production_rate: u64::MAX as _,
             vote_success_rate: u64::MAX as _,
             uptime: u64::MAX as _,
