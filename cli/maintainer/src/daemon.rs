@@ -43,8 +43,8 @@ struct MaintenanceMetrics {
     /// Number of times we performed `UpdateExchangeRate`.
     transactions_update_exchange_rate: u64,
 
-    /// Number of times we performed `UpdateBlockProductionRate`.
-    transactions_update_block_production_rate: u64,
+    /// Number of times we performed `UpdateValidatorPerf`.
+    transactions_update_validator_perf: u64,
 
     /// Number of times we performed `UpdateStakeAccountBalance`.
     transactions_update_stake_account_balance: u64,
@@ -125,8 +125,8 @@ impl MaintenanceMetrics {
             MaintenanceOutput::UpdateExchangeRate => {
                 self.transactions_update_exchange_rate += 1;
             }
-            MaintenanceOutput::UpdateBlockProductionRate { .. } => {
-                self.transactions_update_block_production_rate += 1;
+            MaintenanceOutput::UpdateValidatorPerf { .. } => {
+                self.transactions_update_validator_perf += 1;
             }
             MaintenanceOutput::UpdateStakeAccountBalance { .. } => {
                 self.transactions_update_stake_account_balance += 1;
@@ -301,7 +301,7 @@ impl<'a, 'b> Daemon<'a, 'b> {
             errors: 0,
             transactions_stake_deposit: 0,
             transactions_update_exchange_rate: 0,
-            transactions_update_block_production_rate: 0,
+            transactions_update_validator_perf: 0,
             transactions_update_stake_account_balance: 0,
             transactions_merge_stake: 0,
             transactions_unstake_from_inactive_validator: 0,
