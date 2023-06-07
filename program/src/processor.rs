@@ -675,9 +675,10 @@ pub fn process_update_validator_perf(
             perf.computed_in_epoch
         );
         msg!("It can only be done once per epoch, so we are going to abort this transaction.");
-        return Err(LidoError::InstructionIsDeprecated.into());
+        return Err(LidoError::ValidatorPerfAlreadyUpdatedForEpoch.into());
     }
 
+    perf.computed_in_epoch = clock.epoch;
     perf.block_production_rate = block_production_rate;
     perf.vote_success_rate = vote_success_rate;
     perf.uptime = uptime;

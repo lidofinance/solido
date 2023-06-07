@@ -226,6 +226,41 @@ async fn test_update_uptime() {
 }
 
 #[tokio::test]
+async fn test_uptime_updates_at_most_once_per_epoch() {
+    // Given a Solido context and an active validator:
+    let mut context = Context::new_with_maintainer_and_validator().await;
+    context.advance_to_normal_epoch(0);
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert!(validator.active);
+
+    // When the uptime of a validator gets updated:
+    let result = context
+        .try_update_validator_perf(*validator.pubkey(), 0, 0, 98)
+        .await;
+    assert!(result.is_ok());
+
+    // And when the uptime of the same validator gets updated again in the same epoch:
+    let result = context
+        .try_update_validator_perf(*validator.pubkey(), 0, 0, 99)
+        .await;
+
+    // Then the second update fails:
+    assert_solido_error!(
+        result,
+        LidoError::ValidatorPerfAlreadyUpdatedForEpoch
+    );
+
+    // But when the epoch changes:
+    context.advance_to_normal_epoch(1);
+
+    // Then the second update succeeds:
+    let result = context
+        .try_update_validator_perf(*validator.pubkey(), 0, 0, 99)
+        .await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
 async fn test_close_vote_account() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     let vote_account = context.validator.as_ref().unwrap().vote_account;
