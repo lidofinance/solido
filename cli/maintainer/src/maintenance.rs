@@ -467,6 +467,7 @@ impl SolidoState {
         let mut validator_identity_account_balances = Vec::new();
         let mut validator_vote_accounts = Vec::new();
         let mut validator_infos = Vec::new();
+        let mut validator_perfs = Vec::new();
         for validator in validators.entries.iter() {
             match config.client.get_account(validator.pubkey()) {
                 Ok(vote_account) => {

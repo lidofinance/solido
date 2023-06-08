@@ -348,6 +348,26 @@ impl<'a> Snapshot<'a> {
         }
     }
 
+    /// Load and parse the validator performance data with the given address.
+    /// If there is no such data, return `None`.
+    pub fn get_validator_perf(
+        &mut self,
+        address: &Pubkey,
+    ) -> crate::Result<ValidatorPerf> {
+        let account = self.get_account(address)?;
+        try_from_slice_unchecked::<ValidatorPerf>(&account.data).map_err(|err| {
+            let error: Error = Box::new(SerializationError {
+                cause: Some(err.into()),
+                address: *address,
+                context: format!(
+                    "Failed to deserialize ValidatorPerf struct, data length is {} bytes.",
+                    account.data.len()
+                ),
+            });
+            error.into()
+        })
+    }
+
     /// Read the account and deserialize the Solido struct.
     pub fn get_solido(&mut self, solido_address: &Pubkey) -> crate::Result<Lido> {
         let account = self.get_account(solido_address)?;
