@@ -10,6 +10,7 @@ use std::time::SystemTime;
 
 use itertools::izip;
 
+use lido::state::ValidatorPerf;
 use serde::Serialize;
 use solana_program::{
     clock::{Clock, Slot},
@@ -64,11 +65,13 @@ pub enum MaintenanceOutput {
 
     UpdateExchangeRate,
 
-    UpdateBlockProductionRate {
+    UpdateValidatorPerf {
         // The vote account of the validator we want to update.
         #[serde(serialize_with = "serialize_b58")]
         validator_vote_account: Pubkey,
         block_production_rate: u8,
+        vote_success_rate: u8,
+        uptime: u8,
     },
 
     UpdateStakeAccountBalance {
@@ -184,13 +187,17 @@ impl fmt::Display for MaintenanceOutput {
                     unstake_withdrawn_to_reserve
                 )?;
             }
-            MaintenanceOutput::UpdateBlockProductionRate {
+            MaintenanceOutput::UpdateValidatorPerf {
                 validator_vote_account,
                 block_production_rate,
+                vote_success_rate,
+                uptime,
             } => {
                 writeln!(f, "Updated block production rate.")?;
                 writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
                 writeln!(f, "  New block production rate:  {}", block_production_rate)?;
+                writeln!(f, "  New vote success rate:  {}", vote_success_rate)?;
+                writeln!(f, "  New uptime:  {}", uptime)?;
             }
             MaintenanceOutput::MergeStake {
                 validator_vote_account,
@@ -332,6 +339,7 @@ pub struct SolidoState {
 
     /// Parsed list entries from list accounts
     pub validators: AccountList<Validator>,
+    pub validator_perfs: AccountList<ValidatorPerf>,
     pub maintainers: AccountList<Maintainer>,
 
     /// Threshold for when to consider the end of an epoch.
@@ -446,6 +454,9 @@ impl SolidoState {
         let validators = config
             .client
             .get_account_list::<Validator>(&solido.validator_list)?;
+        let validator_perfs = config
+            .client
+            .get_account_list::<ValidatorPerf>(&solido.validator_perf_list)?;
         let maintainers = config
             .client
             .get_account_list::<Maintainer>(&solido.maintainer_list)?;
@@ -467,7 +478,6 @@ impl SolidoState {
         let mut validator_identity_account_balances = Vec::new();
         let mut validator_vote_accounts = Vec::new();
         let mut validator_infos = Vec::new();
-        let mut validator_perfs = Vec::new();
         for validator in validators.entries.iter() {
             match config.client.get_account(validator.pubkey()) {
                 Ok(vote_account) => {
@@ -552,6 +562,7 @@ impl SolidoState {
             maintainer_address,
             stake_time,
             validators,
+            validator_perfs,
             maintainers,
             end_of_epoch_threshold,
         })
@@ -905,26 +916,39 @@ impl SolidoState {
         Some(MaintenanceInstruction::new(instruction, task))
     }
 
-    /// Tell the program the newest block production rates.
-    pub fn try_update_block_production_rate(&self) -> Option<MaintenanceInstruction> {
+    /// Tell the program how well the validators are performing.
+    pub fn try_update_validator_perfs(&self) -> Option<MaintenanceInstruction> {
         for validator in self.validators.entries.iter() {
-            if false {
+            let perf = self
+                .validator_perfs
+                .entries
+                .iter()
+                .find(|perf| perf.validator_vote_account_address == *validator.pubkey());
+            if perf
+                .map(|perf| perf.computed_in_epoch >= self.clock.epoch)
+                .unwrap_or(false)
+            {
+                // This validator's performance has already been updated in this epoch, nothing to do.
                 continue;
             }
 
-            let instruction = lido::instruction::update_block_production_rate(
+            let instruction = lido::instruction::update_validator_perf(
                 &self.solido_program_id,
                 0,
-                &lido::instruction::UpdateBlockProductionRateAccountsMeta {
+                0,
+                0,
+                &lido::instruction::UpdateValidatorPerfAccountsMeta {
                     lido: self.solido_address,
                     validator_vote_account_to_update: *validator.pubkey(),
                     validator_list: self.solido.validator_list,
                     validator_perf_list: self.solido.validator_perf_list,
                 },
             );
-            let task = MaintenanceOutput::UpdateBlockProductionRate {
+            let task = MaintenanceOutput::UpdateValidatorPerf {
                 validator_vote_account: *validator.pubkey(),
                 block_production_rate: 0,
+                vote_success_rate: 0,
+                uptime: 0,
             };
             return Some(MaintenanceInstruction::new(instruction, task));
         }
@@ -1540,7 +1564,7 @@ pub fn try_perform_maintenance(
         // as possible.
         .or_else(|| state.try_merge_on_all_stakes())
         .or_else(|| state.try_update_exchange_rate())
-        .or_else(|| state.try_update_block_production_rate())
+        .or_else(|| state.try_update_validator_perfs())
         .or_else(|| state.try_unstake_from_inactive_validator())
         // Collecting validator fees goes after updating the exchange rate,
         // because it may be rejected if the exchange rate is outdated.
@@ -1615,6 +1639,7 @@ mod test {
             maintainer_address: Pubkey::new_unique(),
             stake_time: StakeTime::Anytime,
             validators: AccountList::<Validator>::new_default(0),
+            validator_perfs: AccountList::<ValidatorPerf>::new_default(0),
             maintainers: AccountList::<Maintainer>::new_default(0),
             end_of_epoch_threshold: 95,
         };

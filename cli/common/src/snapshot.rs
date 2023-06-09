@@ -46,7 +46,7 @@ use solana_sdk::transaction::Transaction;
 use solana_transaction_status::{TransactionDetails, UiTransactionEncoding};
 use solana_vote_program::vote_state::VoteState;
 
-use lido::state::{AccountList, Lido, ListEntry};
+use lido::state::{AccountList, Lido, ListEntry, ValidatorPerf};
 use lido::token::Lamports;
 use spl_token::solana_program::hash::Hash;
 
@@ -350,10 +350,7 @@ impl<'a> Snapshot<'a> {
 
     /// Load and parse the validator performance data with the given address.
     /// If there is no such data, return `None`.
-    pub fn get_validator_perf(
-        &mut self,
-        address: &Pubkey,
-    ) -> crate::Result<ValidatorPerf> {
+    pub fn get_validator_perf(&mut self, address: &Pubkey) -> crate::Result<ValidatorPerf> {
         let account = self.get_account(address)?;
         try_from_slice_unchecked::<ValidatorPerf>(&account.data).map_err(|err| {
             let error: Error = Box::new(SerializationError {
