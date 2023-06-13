@@ -1199,86 +1199,21 @@ impl Context {
     }
 
     /// Update the perf account for the given validator with the given reading.
-    pub async fn try_update_validator_block_production_rate(
+    pub async fn try_update_validator_perf(
         &mut self,
         validator_vote_account: Pubkey,
         new_block_production_rate: u8,
-    ) -> transport::Result<()> {
-        send_transaction(
-            &mut self.context,
-            &[instruction::update_block_production_rate(
-                &id(),
-                new_block_production_rate,
-                &instruction::UpdateBlockProductionRateAccountsMeta {
-                    lido: self.solido.pubkey(),
-                    validator_vote_account_to_update: validator_vote_account,
-                    validator_list: self.validator_list.pubkey(),
-                    validator_perf_list: self.validator_perf_list.pubkey(),
-                },
-            )],
-            vec![],
-        )
-        .await
-    }
-
-    pub async fn update_validator_block_production_rate(
-        &mut self,
-        validator_vote_account: Pubkey,
-        new_block_production_rate: u8,
-    ) {
-        self.try_update_validator_block_production_rate(
-            validator_vote_account,
-            new_block_production_rate,
-        )
-        .await
-        .expect("Validator performance metrics could always be updated");
-    }
-
-    /// Update the perf account for the given validator with the given reading.
-    pub async fn try_update_validator_vote_success_rate(
-        &mut self,
-        validator_vote_account: Pubkey,
         new_vote_success_rate: u8,
-    ) -> transport::Result<()> {
-        send_transaction(
-            &mut self.context,
-            &[instruction::update_vote_success_rate(
-                &id(),
-                new_vote_success_rate,
-                &instruction::UpdateVoteSuccessRateAccountsMeta {
-                    lido: self.solido.pubkey(),
-                    validator_vote_account_to_update: validator_vote_account,
-                    validator_list: self.validator_list.pubkey(),
-                    validator_perf_list: self.validator_perf_list.pubkey(),
-                },
-            )],
-            vec![],
-        )
-        .await
-    }
-
-    pub async fn update_validator_vote_success_rate(
-        &mut self,
-        validator_vote_account: Pubkey,
-        new_vote_success_rate: u8,
-    ) {
-        self.try_update_validator_vote_success_rate(validator_vote_account, new_vote_success_rate)
-            .await
-            .expect("Validator performance metrics could always be updated");
-    }
-
-    /// Update the perf account for the given validator with the given reading.
-    pub async fn try_update_validator_uptime(
-        &mut self,
-        validator_vote_account: Pubkey,
         new_uptime: u8,
     ) -> transport::Result<()> {
         send_transaction(
             &mut self.context,
-            &[instruction::update_uptime(
+            &[instruction::update_validator_perf(
                 &id(),
+                new_block_production_rate,
+                new_vote_success_rate,
                 new_uptime,
-                &instruction::UpdateUptimeAccountsMeta {
+                &instruction::UpdateValidatorPerfAccountsMeta {
                     lido: self.solido.pubkey(),
                     validator_vote_account_to_update: validator_vote_account,
                     validator_list: self.validator_list.pubkey(),
@@ -1290,14 +1225,21 @@ impl Context {
         .await
     }
 
-    pub async fn update_validator_uptime(
+    pub async fn update_validator_perf(
         &mut self,
         validator_vote_account: Pubkey,
+        new_block_production_rate: u8,
         new_vote_success_rate: u8,
+        new_uptime: u8,
     ) {
-        self.try_update_validator_vote_success_rate(validator_vote_account, new_vote_success_rate)
-            .await
-            .expect("Validator performance metrics could always be updated");
+        self.try_update_validator_perf(
+            validator_vote_account,
+            new_block_production_rate,
+            new_vote_success_rate,
+            new_uptime,
+        )
+        .await
+        .expect("Validator performance metrics could always be updated");
     }
 
     pub async fn try_get_account(&mut self, address: Pubkey) -> Option<Account> {
