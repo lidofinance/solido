@@ -107,11 +107,7 @@ pub enum LidoInstruction {
     /// or if vote account is closed, then deactivate it
     ///
     /// Requires no permission
-    DeactivateIfViolates {
-        // Index of a validator in validator list
-        #[allow(dead_code)] // but it's not
-        validator_index: u32,
-    },
+    DeactivateIfViolates,
 
     /// Set the curation thresholds to control validator's desired performance.
     /// If validators fall below the threshold they will be deactivated by
@@ -1018,12 +1014,11 @@ accounts_struct! {
 pub fn deactivate_if_violates(
     program_id: &Pubkey,
     accounts: &DeactivateIfViolatesMeta,
-    validator_index: u32,
 ) -> Instruction {
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),
-        data: LidoInstruction::DeactivateIfViolates { validator_index }.to_vec(),
+        data: LidoInstruction::DeactivateIfViolates.to_vec(),
     }
 }
 

@@ -1294,8 +1294,8 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::MergeStakeV2 { validator_index } => {
             process_merge_stake(program_id, validator_index, accounts)
         }
-        LidoInstruction::DeactivateIfViolates { validator_index } => {
-            process_deactivate_if_violates(program_id, validator_index, accounts)
+        LidoInstruction::DeactivateIfViolates => {
+            process_deactivate_if_violates(program_id, accounts)
         }
         LidoInstruction::ChangeCriteria { new_criteria } => {
             process_change_criteria(program_id, new_criteria, accounts)

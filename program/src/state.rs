@@ -224,6 +224,10 @@ impl<'data, T: ListEntry> BigVecWithHeader<'data, T> {
         self.big_vec.iter()
     }
 
+    pub fn iter_mut(&'data mut self) -> impl Iterator<Item = &'data mut T> {
+        self.big_vec.iter_mut()
+    }
+
     pub fn find(&'data self, pubkey: &Pubkey) -> Result<&'data T, LidoError> {
         self.big_vec
             .find(&pubkey.to_bytes(), T::memcmp_pubkey)

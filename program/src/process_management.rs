@@ -139,7 +139,6 @@ pub fn process_deactivate_validator(
 /// removing the validator once no stake is delegated to it anymore.
 pub fn process_deactivate_if_violates(
     program_id: &Pubkey,
-    validator_index: u32,
     accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
     let accounts = DeactivateIfViolatesInfo::try_from_slice(accounts_raw)?;
@@ -159,15 +158,27 @@ pub fn process_deactivate_if_violates(
         validator_list_data,
     )?;
 
-    let validator = validators.get_mut(
-        validator_index,
-        accounts.validator_vote_account_to_deactivate.key,
-    )?;
+    // Find the validator in the list of validators.
+    let validator = validators
+        .iter_mut()
+        .find(|validator| validator.pubkey() == accounts.validator_vote_account_to_deactivate.key);
+    let validator = match validator {
+        Some(validator) => validator,
+        None => {
+            msg!(
+                "No such validator: {}.",
+                accounts.validator_vote_account_to_deactivate.key
+            );
+            return Err(LidoError::InvalidAccountInfo.into());
+        }
+    };
 
+    // Nothing to do if the validator is already inactive.
     if !validator.active {
         return Ok(());
     }
 
+    // Find the validator's performance metrics.
     let validator_perf = validator_perfs.iter().find(|perf| {
         &perf.validator_vote_account_address == accounts.validator_vote_account_to_deactivate.key
     });

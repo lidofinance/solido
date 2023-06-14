@@ -1469,8 +1469,6 @@ impl Context {
         &mut self,
         vote_account: Pubkey,
     ) -> transport::Result<()> {
-        let solido = self.get_solido().await;
-        let validator_index = solido.validators.position(&vote_account).unwrap();
         send_transaction(
             &mut self.context,
             &[lido::instruction::deactivate_if_violates(
@@ -1481,7 +1479,6 @@ impl Context {
                     validator_list: self.validator_list.pubkey(),
                     validator_perf_list: self.validator_perf_list.pubkey(),
                 },
-                validator_index,
             )],
             vec![],
         )
