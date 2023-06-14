@@ -133,6 +133,17 @@ impl<'data, T: Pack + Clone> BigVec<'data, T> {
         }
     }
 
+    /// Get a mutable iterator for the type provided
+    pub fn iter_mut<'vec>(&'vec mut self) -> IterMut<'data, 'vec, T> {
+        IterMut {
+            len: self.len() as usize,
+            current: 0,
+            current_index: VEC_SIZE_BYTES,
+            inner: self,
+            phantom: PhantomData,
+        }
+    }
+
     /// Find matching data in the array
     pub fn find(&self, data: &[u8], predicate: fn(&[u8], &[u8]) -> bool) -> Option<&T> {
         let len = self.len() as usize;
@@ -170,6 +181,33 @@ impl<'data, 'vec, T: Pack + 'data> Iterator for Iter<'data, 'vec, T> {
             let end_index = self.current_index + T::LEN;
             let value = Some(unsafe {
                 &*(self.inner.data[self.current_index..end_index].as_ptr() as *const T)
+            });
+            self.current += 1;
+            self.current_index = end_index;
+            value
+        }
+    }
+}
+
+/// Mutating iterator wrapper over a BigVec
+pub struct IterMut<'data, 'vec, T> {
+    len: usize,
+    current: usize,
+    current_index: usize,
+    inner: &'vec mut BigVec<'data, T>,
+    phantom: PhantomData<T>,
+}
+
+impl<'data, 'vec, T: Pack + 'data> Iterator for IterMut<'data, 'vec, T> {
+    type Item = &'data mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current == self.len {
+            None
+        } else {
+            let end_index = self.current_index + T::LEN;
+            let value = Some(unsafe {
+                &mut *(self.inner.data[self.current_index..end_index].as_ptr() as *mut T)
             });
             self.current += 1;
             self.current_index = end_index;
@@ -244,6 +282,18 @@ mod tests {
             v.push(TestStruct::new(4)).unwrap_err(),
             ProgramError::AccountDataTooSmall
         );
+    }
+
+    #[test]
+    fn iter_mut() {
+        let mut data = [0u8; 4 + 8 * 3];
+        let mut v = BigVec::new(&mut data);
+        v.push(TestStruct::new(1)).unwrap();
+        v.push(TestStruct::new(2)).unwrap();
+        v.push(TestStruct::new(3)).unwrap();
+        check_big_vec_eq(&v, &[1, 2, 3]);
+        v.iter_mut().for_each(|x| x.value += 1);
+        check_big_vec_eq(&v, &[2, 3, 4]);
     }
 
     #[test]
