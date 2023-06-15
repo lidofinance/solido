@@ -385,6 +385,15 @@ pub struct ValidatorPerf {
     pub uptime: u64,
 }
 
+impl ValidatorPerf {
+    /// True only if these metrics meet the criteria.
+    pub fn meets_criteria(&self, criteria: &Criteria) -> bool {
+        self.block_production_rate >= (criteria.min_block_production_rate as u64)
+            && self.vote_success_rate >= (criteria.min_vote_success_rate as u64)
+            && self.uptime >= (criteria.min_uptime as u64)
+    }
+}
+
 /// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
 /// THERE'S AN EXTREMELY GOOD REASON.
 ///

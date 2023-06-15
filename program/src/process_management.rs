@@ -178,32 +178,32 @@ pub fn process_deactivate_if_violates(
         return Ok(());
     }
 
-    // Find the validator's performance metrics.
-    let validator_perf = validator_perfs.iter().find(|perf| {
-        &perf.validator_vote_account_address == accounts.validator_vote_account_to_deactivate.key
-    });
+    let should_deactivate = if accounts.validator_vote_account_to_deactivate.owner
+        == &solana_program::vote::program::id()
+    {
+        // Find the validator's performance metrics.
+        let validator_perf = validator_perfs.iter().find(|perf| {
+            &perf.validator_vote_account_address
+                == accounts.validator_vote_account_to_deactivate.key
+        });
 
-    if accounts.validator_vote_account_to_deactivate.owner == &solana_program::vote::program::id() {
+        // And its commission.
         let data = accounts.validator_vote_account_to_deactivate.data.borrow();
         let commission = get_vote_account_commission(&data)?;
 
-        let does_perform_well = match validator_perf {
-            Some(validator_perf) => {
-                validator_perf.block_production_rate
-                    >= (lido.criteria.min_block_production_rate as u64)
-                    && validator_perf.vote_success_rate
-                        >= (lido.criteria.min_vote_success_rate as u64)
-                    && validator_perf.uptime >= (lido.criteria.min_uptime as u64)
-            }
-            None => true,
-        };
+        // Check if the validator violates the criteria.
+        let does_perform_well =
+            validator_perf.map_or(true, |perf| perf.meets_criteria(&lido.criteria));
+        let does_perform_well = does_perform_well && commission <= lido.criteria.max_commission;
 
-        if commission <= lido.criteria.max_commission && does_perform_well {
-            // Does not violate.
-            return Ok(());
-        }
+        // If the validator does not perform well, deactivate it.
+        !does_perform_well
     } else {
-        // The vote account is closed by node operator
+        // The vote account is closed by node operator.
+        true
+    };
+    if !should_deactivate {
+        return Ok(());
     }
 
     validator.active = false;
