@@ -1085,7 +1085,7 @@ pub fn command_deactivate_if_violates(
 
     let mut violations = vec![];
     let mut instructions = vec![];
-    for (validator_index, validator) in validators.entries.iter().enumerate() {
+    for validator in validators.entries.iter() {
         let vote_pubkey = validator.pubkey();
         let validator_account = config.client.get_account(vote_pubkey)?;
         let commission = get_vote_account_commission(&validator_account.data)
@@ -1104,7 +1104,6 @@ pub fn command_deactivate_if_violates(
                 validator_list: solido.validator_list,
                 validator_perf_list: solido.validator_perf_list,
             },
-            u32::try_from(validator_index).expect("Too many validators"),
         );
         instructions.push(instruction);
         violations.push(ValidatorViolationInfo {

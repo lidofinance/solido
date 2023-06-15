@@ -763,12 +763,11 @@ impl SolidoState {
     /// If there is a validator which exceeded commission limit or it's vote account is closed,
     /// try to deactivate it.
     pub fn try_deactivate_if_violates(&self) -> Option<MaintenanceInstruction> {
-        for (validator_index, (validator, vote_state)) in self
+        for (validator, vote_state) in self
             .validators
             .entries
             .iter()
             .zip(self.validator_vote_accounts.iter())
-            .enumerate()
         {
             if !validator.active {
                 continue;
@@ -795,7 +794,6 @@ impl SolidoState {
                     validator_list: self.solido.validator_list,
                     validator_perf_list: self.solido.validator_perf_list,
                 },
-                u32::try_from(validator_index).expect("Too many validators"),
             );
             return Some(MaintenanceInstruction::new(instruction, task));
         }
