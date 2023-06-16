@@ -682,13 +682,13 @@ pub fn process_update_validator_perf(
     perf.block_production_rate = block_production_rate;
     perf.vote_success_rate = vote_success_rate;
     perf.uptime = uptime;
-    msg!("For validator {}, updated:", validator_vote_account_address);
     msg!(
-        "block production rate to {},",
-        validator_vote_account_address
+        "Validator {} gets new perf: block_production_rate={}, vote_success_rate={}, uptime={}",
+        validator_vote_account_address,
+        block_production_rate,
+        vote_success_rate,
+        uptime,
     );
-    msg!("vote success rate to {},", vote_success_rate);
-    msg!("uptime to {}.", uptime);
 
     Ok(())
 }
