@@ -127,6 +127,8 @@ pub fn process_deactivate_validator(
         accounts.validator_vote_account_to_deactivate.key,
     )?;
 
+    // Mark the validator as inactive so that no new stake can be delegated to it,
+    // and the existing stake shall be unstaked by the maintainer.
     validator.active = false;
     msg!("Validator {} deactivated.", validator.pubkey());
     Ok(())
@@ -206,6 +208,8 @@ pub fn process_deactivate_if_violates(
         return Ok(());
     }
 
+    // Mark the validator as inactive so that no new stake can be delegated to it,
+    // and the existing stake shall be unstaked by the maintainer.
     validator.active = false;
     msg!("Validator {} deactivated.", validator.pubkey());
 
