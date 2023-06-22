@@ -649,23 +649,22 @@ pub fn process_update_validator_perf(
         validator_perf_list_data,
     )?;
 
-    // Find the existing perf record for the validator:
-    let perf_index = validator_perfs
-        .iter()
-        .position(|perf| perf.validator_vote_account_address == validator_vote_account_address);
-    // If there is no existing perf record, create a new one:
-    let perf_index = match perf_index {
-        None => {
-            validator_perfs.push(ValidatorPerf {
-                validator_vote_account_address,
-                block_production_rate,
-                ..Default::default()
-            })?;
-            (validator_perfs.len() as usize) - 1
+    let mut perf = {
+        let index = validator_perfs
+            .iter()
+            .position(|perf| perf.validator_vote_account_address == validator_vote_account_address);
+        match index {
+            None => {
+                validator_perfs.push(ValidatorPerf {
+                    validator_vote_account_address,
+                    ..Default::default()
+                })?;
+                validator_perfs.iter_mut().last().unwrap()
+            }
+            Some(index) => validator_perfs
+                .get_mut(index as u32, accounts.validator_vote_account_to_update.key)?,
         }
-        Some(index) => index,
     };
-    let mut perf = validator_perfs.get_mut(perf_index as u32, &validator_vote_account_address)?;
 
     // Update could happen at most once per epoch:
     let clock = Clock::get()?;
