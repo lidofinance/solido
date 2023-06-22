@@ -245,10 +245,7 @@ async fn test_uptime_updates_at_most_once_per_epoch() {
         .await;
 
     // Then the second update fails:
-    assert_solido_error!(
-        result,
-        LidoError::ValidatorPerfAlreadyUpdatedForEpoch
-    );
+    assert_solido_error!(result, LidoError::ValidatorPerfAlreadyUpdatedForEpoch);
 
     // But when the epoch changes:
     context.advance_to_normal_epoch(1);
