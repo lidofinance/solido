@@ -191,13 +191,8 @@ pub fn process_deactivate_if_violates(
         let data = accounts.validator_vote_account_to_deactivate.data.borrow();
         let commission = get_vote_account_commission(&data)?;
 
-        // Check if the validator violates the criteria.
-        let does_perform_well =
-            validator_perf.map_or(true, |perf| perf.meets_criteria(&lido.criteria));
-        let does_perform_well = does_perform_well && commission <= lido.criteria.max_commission;
-
         // If the validator does not perform well, deactivate it.
-        !does_perform_well
+        !does_perform_well(&lido.criteria, commission, validator_perf)
     } else {
         // The vote account is closed by node operator.
         true

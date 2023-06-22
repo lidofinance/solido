@@ -100,6 +100,12 @@ pub fn get_reserve_available_balance(
     }
 }
 
+/// True only if the validator meets the criteria.
+pub fn does_perform_well(criteria: &Criteria, commission: u8, perf: Option<&ValidatorPerf>) -> bool {
+    perf.map_or(true, |perf| perf.meets_criteria(criteria))
+        && commission <= criteria.max_commission
+}
+
 pub struct CreateAccountOptions<'a, 'b> {
     /// The amount to transfer from the reserve to the new account.
     pub fund_amount: Lamports,

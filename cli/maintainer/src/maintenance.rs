@@ -773,13 +773,18 @@ impl SolidoState {
                 continue;
             }
 
-            // We are only interested in validators that violate commission limit
-            if let Some(state) = vote_state {
-                if state.commission <= self.solido.criteria.max_commission {
+            // We are only interested in validators that violate the criteria.
+            if let Some(vote_state) = vote_state {
+                if does_perform_well(
+                    &self.solido.criteria,
+                    vote_state.commission,
+                    self.validator_perfs.find(validator.pubkey()),
+                ) {
+                    // Validator is performing well, no need to deactivate.
                     continue;
                 }
             } else {
-                // Vote account is closed
+                // Vote account is closed -- falling through to deactivation.
             }
 
             let task = MaintenanceOutput::DeactivateIfViolates {
