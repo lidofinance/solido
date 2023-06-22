@@ -6,7 +6,7 @@ use solana_program::rent::Rent;
 use solana_program::sysvar::Sysvar;
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, msg, pubkey::Pubkey};
 
-use crate::logic::check_rent_exempt;
+use crate::logic::{check_rent_exempt, does_perform_well};
 use crate::processor::StakeType;
 use crate::state::{Criteria, Lido, ValidatorPerf};
 use crate::vote_state::PartialVoteState;

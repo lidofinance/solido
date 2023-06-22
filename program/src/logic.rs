@@ -12,6 +12,7 @@ use solana_program::{
 };
 
 use crate::processor::StakeType;
+use crate::state::{Criteria, ValidatorPerf};
 use crate::STAKE_AUTHORITY;
 use crate::{
     error::LidoError,

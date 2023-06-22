@@ -10,7 +10,7 @@ pub mod accounts;
 pub mod balance;
 pub mod error;
 pub mod instruction;
-pub(crate) mod logic;
+pub mod logic;
 pub mod metrics;
 pub(crate) mod process_management;
 pub mod processor;

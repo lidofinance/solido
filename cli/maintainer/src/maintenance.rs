@@ -10,7 +10,6 @@ use std::time::SystemTime;
 
 use itertools::izip;
 
-use lido::state::ValidatorPerf;
 use serde::Serialize;
 use solana_program::{
     clock::{Clock, Slot},
@@ -35,10 +34,11 @@ use solido_cli_common::{
 use spl_token::state::Mint;
 
 use lido::{
+    logic::does_perform_well,
     processor::StakeType,
     stake_account::StakeAccount,
     stake_account::{deserialize_stake_account, StakeBalance},
-    state::{AccountList, Lido, ListEntry, Maintainer, Validator},
+    state::{AccountList, Lido, ListEntry, Maintainer, Validator, ValidatorPerf},
     token::Lamports,
     token::Rational,
     token::StLamports,

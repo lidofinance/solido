@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2021 Chorus One AG
 // SPDX-License-Identifier: GPL-3.0
 
-use std::convert::TryFrom;
 use std::{fmt, path::PathBuf};
 
 use serde::Serialize;
