@@ -525,6 +525,12 @@ impl Validator {
         let authority = [VALIDATOR_STAKE_ACCOUNT, &epoch.to_le_bytes()[..]].concat();
         self.find_stake_account_address_with_authority(program_id, solido_account, &authority, seed)
     }
+
+    /// Mark the validator as inactive so that no new stake can be delegated to it,
+    /// and the existing stake shall be unstaked by the maintainer.
+    pub fn deactivate(&mut self) {
+        self.active = false;
+    }
 }
 
 impl Sealed for Validator {}
