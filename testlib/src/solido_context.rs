@@ -1485,6 +1485,26 @@ impl Context {
         .await
     }
 
+    pub async fn try_reactivate_if_complies(
+        &mut self,
+        vote_account: Pubkey,
+    ) -> transport::Result<()> {
+        send_transaction(
+            &mut self.context,
+            &[lido::instruction::reactivate_if_complies(
+                &id(),
+                &lido::instruction::ReactivateIfCompliesMeta {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_reactivate: vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                    validator_perf_list: self.validator_perf_list.pubkey(),
+                },
+            )],
+            vec![],
+        )
+        .await
+    }
+
     pub async fn try_close_vote_account(
         &mut self,
         vote_account: &Pubkey,

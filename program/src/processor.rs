@@ -22,8 +22,8 @@ use crate::{
     process_management::{
         process_add_maintainer, process_add_validator, process_change_criteria,
         process_change_reward_distribution, process_deactivate_if_violates,
-        process_deactivate_validator, process_merge_stake, process_remove_maintainer,
-        process_remove_validator,
+        process_deactivate_validator, process_merge_stake, process_reactivate_if_complies,
+        process_remove_maintainer, process_remove_validator,
     },
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
@@ -1295,6 +1295,9 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         }
         LidoInstruction::DeactivateIfViolates => {
             process_deactivate_if_violates(program_id, accounts)
+        }
+        LidoInstruction::ReactivateIfComplies => {
+            process_reactivate_if_complies(program_id, accounts)
         }
         LidoInstruction::ChangeCriteria { new_criteria } => {
             process_change_criteria(program_id, new_criteria, accounts)

@@ -109,6 +109,12 @@ pub enum LidoInstruction {
     /// Requires no permission
     DeactivateIfViolates,
 
+    /// Check if validator lowered their commission back in the allowed range,
+    /// then activate it back.
+    ///
+    /// Requires no permission
+    ReactivateIfComplies,
+
     /// Set the curation thresholds to control validator's desired performance.
     /// If validators fall below the threshold they will be deactivated by
     /// `DeactivateIfViolates`.
@@ -1019,6 +1025,39 @@ pub fn deactivate_if_violates(
         program_id: *program_id,
         accounts: accounts.to_vec(),
         data: LidoInstruction::DeactivateIfViolates.to_vec(),
+    }
+}
+
+accounts_struct! {
+    ReactivateIfCompliesMeta,
+    ReactivateIfCompliesInfo {
+        pub lido {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_vote_account_to_reactivate {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: true,
+        },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: false,
+        },
+    }
+}
+
+pub fn reactivate_if_complies(
+    program_id: &Pubkey,
+    accounts: &ReactivateIfCompliesMeta,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::ReactivateIfComplies.to_vec(),
     }
 }
 

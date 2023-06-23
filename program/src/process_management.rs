@@ -207,6 +207,15 @@ pub fn process_deactivate_if_violates(
     Ok(())
 }
 
+/// If necessary, reactivate a validator that was deactivated by
+/// `DeactivateIfViolates`.
+pub fn process_reactivate_if_complies(
+    _program_id: &Pubkey,
+    _accounts_raw: &[AccountInfo],
+) -> ProgramResult {
+    todo!()
+}
+
 /// Adds a maintainer to the list of maintainers
 pub fn process_add_maintainer(program_id: &Pubkey, accounts_raw: &[AccountInfo]) -> ProgramResult {
     let accounts = AddMaintainerInfoV2::try_from_slice(accounts_raw)?;

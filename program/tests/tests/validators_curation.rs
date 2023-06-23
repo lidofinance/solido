@@ -258,6 +258,45 @@ async fn test_uptime_updates_at_most_once_per_epoch() {
 }
 
 #[tokio::test]
+async fn test_bring_back() {
+    // Given a previously deactivated validator:
+    let mut context = Context::new_with_maintainer_and_validator().await;
+    context.advance_to_normal_epoch(0);
+    let validator = &context.get_solido().await.validators.entries[0];
+
+    let result = context
+        .try_change_criteria(&Criteria {
+            min_uptime: 99,
+            ..context.criteria
+        })
+        .await;
+    assert_eq!(result.is_ok(), true);
+
+    let result = context
+        .try_update_validator_perf(*validator.pubkey(), 0, 0, 98)
+        .await;
+    assert_eq!(result.is_ok(), true);
+
+    let result = context.try_deactivate_if_violates(*validator.pubkey());
+    assert_eq!(result.await.is_ok(), true);
+
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert_eq!(validator.active, false);
+
+    // When the validator's performance is back to normal:
+    let result = context.try_reactivate_if_complies(*validator.pubkey());
+    assert_eq!(result.await.is_ok(), true);
+
+    // And when the instruction is issued:
+    let result = context.try_reactivate_if_complies(*validator.pubkey());
+    assert_eq!(result.await.is_ok(), true);
+
+    // Then the validator is reactivated:
+    let validator = &context.get_solido().await.validators.entries[0];
+    assert_eq!(validator.active, true);
+}
+
+#[tokio::test]
 async fn test_close_vote_account() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     let vote_account = context.validator.as_ref().unwrap().vote_account;
