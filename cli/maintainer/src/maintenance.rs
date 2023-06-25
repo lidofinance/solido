@@ -805,6 +805,54 @@ impl SolidoState {
         None
     }
 
+    /// If a validator is back into the commission limit, try to bring it back.
+    pub fn try_reactivate_if_complies(&self) -> Option<MaintenanceInstruction> {
+        for (validator, vote_state) in self
+            .validators
+            .entries
+            .iter()
+            .zip(self.validator_vote_accounts.iter())
+        {
+            if validator.active {
+                // Already active, so nothing to do.
+                continue;
+            }
+
+            // We are only interested in previously deactivated validators
+            // that are now performing well.
+            if let Some(vote_state) = vote_state {
+                if !does_perform_well(
+                    &self.solido.criteria,
+                    vote_state.commission,
+                    self.validator_perfs.find(validator.pubkey()),
+                ) {
+                    // Validator is still not performing well, no need to reactivate.
+                    continue;
+                }
+            } else {
+                // Vote account is closed -- nothing to do here.
+                continue;
+            }
+
+            let task = MaintenanceOutput::DeactivateIfViolates {
+                validator_vote_account: *validator.pubkey(),
+            };
+
+            let instruction = lido::instruction::deactivate_if_violates(
+                &self.solido_program_id,
+                &lido::instruction::DeactivateIfViolatesMeta {
+                    lido: self.solido_address,
+                    validator_vote_account_to_deactivate: *validator.pubkey(),
+                    validator_list: self.solido.validator_list,
+                    validator_perf_list: self.solido.validator_perf_list,
+                },
+            );
+            return Some(MaintenanceInstruction::new(instruction, task));
+        }
+
+        None
+    }
+
     /// If there is a validator ready for removal, try to remove it.
     pub fn try_remove_validator(&self) -> Option<MaintenanceInstruction> {
         for (validator_index, validator) in self.validators.entries.iter().enumerate() {
@@ -1568,6 +1616,7 @@ pub fn try_perform_maintenance(
         .or_else(|| state.try_merge_on_all_stakes())
         .or_else(|| state.try_update_exchange_rate())
         .or_else(|| state.try_update_validator_perfs())
+        .or_else(|| state.try_reactivate_if_complies())
         .or_else(|| state.try_unstake_from_inactive_validator())
         // Collecting validator fees goes after updating the exchange rate,
         // because it may be rejected if the exchange rate is outdated.
