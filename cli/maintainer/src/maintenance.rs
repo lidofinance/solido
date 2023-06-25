@@ -1545,6 +1545,25 @@ impl SolidoState {
         }
     }
 
+    pub fn is_at_epoch_end(&self) -> bool {
+        let first_slot_in_current_epoch = self
+            .epoch_schedule
+            .get_first_slot_in_epoch(self.clock.epoch);
+        let slots_into_current_epoch = self.clock.slot - first_slot_in_current_epoch;
+        let slots_per_epoch = self.epoch_schedule.get_slots_in_epoch(self.clock.epoch);
+
+        let epoch_progress = Rational {
+            numerator: slots_into_current_epoch,
+            denominator: slots_per_epoch,
+        };
+        let near_epoch_end = Rational {
+            numerator: self.end_of_epoch_threshold as u64,
+            denominator: 100, // `end_of_epoch_threshold` argument supplied as a percentage.
+        };
+
+        epoch_progress >= near_epoch_end
+    }
+
     /// Return None if we observe we moved past `1 -
     /// config.end_of_epoch_threshold`%. Return Some(()) if the above
     /// condition fails or `self.stake_unstake_any_time` is set to
