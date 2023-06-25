@@ -465,8 +465,9 @@ pub struct ShowSolidoOutput {
     pub mint_authority: Pubkey,
 
     /// Validator structure as the program sees it, along with the validator's
-    /// identity account address, their info, and their commission percentage.
-    pub validators: Vec<(Validator, Pubkey, ValidatorInfo, u8)>,
+    /// identity account address, their info, their performance data,
+    /// and their commission percentage.
+    pub validators: Vec<(Validator, Pubkey, ValidatorInfo, Option<ValidatorPerf>, u8)>,
     pub validators_max: u32,
 
     pub maintainers: Vec<Maintainer>,
@@ -624,7 +625,7 @@ impl fmt::Display for ShowSolidoOutput {
             self.validators.len(),
             self.validators_max,
         )?;
-        for (v, identity, info, commission) in self.validators.iter() {
+        for (v, identity, info, perf, commission) in self.validators.iter() {
             writeln!(
                 f,
                 "\n  - \
@@ -688,6 +689,32 @@ impl fmt::Display for ShowSolidoOutput {
                     .0
                 )?;
             }
+
+            writeln!(f, "    Performance readings:")?;
+            if let Some(perf) = perf {
+                writeln!(
+                    f,
+                    "      For the epoch:              {}",
+                    perf.computed_in_epoch
+                )?;
+                writeln!(
+                    f,
+                    "      Block Production Rate:      {}/epoch",
+                    perf.block_production_rate
+                )?;
+                writeln!(
+                    f,
+                    "      Vote Success Rate:          {}/epoch",
+                    perf.vote_success_rate
+                )?;
+                writeln!(
+                    f,
+                    "      Uptime:                     {}s/epoch", // --
+                    perf.uptime
+                )?;
+            } else {
+                writeln!(f, "      Not yet collected.")?;
+            }
         }
         writeln!(f, "\nMaintainer list {}", self.solido.maintainer_list)?;
         writeln!(
@@ -720,6 +747,9 @@ pub fn command_show_solido(
     let validators = config
         .client
         .get_account_list::<Validator>(&lido.validator_list)?;
+    let available_perfs = config
+        .client
+        .get_account_list::<ValidatorPerf>(&lido.validator_perf_list)?;
     let validators_max = validators.header.max_entries;
     let validators = validators.entries;
     let maintainers = config
@@ -731,6 +761,7 @@ pub fn command_show_solido(
     let mut validator_identities = Vec::new();
     let mut validator_infos = Vec::new();
     let mut validator_commission_percentages = Vec::new();
+    let mut validator_perfs = Vec::new();
     for validator in validators.iter() {
         let vote_state = config.client.get_vote_account(validator.pubkey())?;
         validator_identities.push(vote_state.node_pubkey);
@@ -741,13 +772,23 @@ pub fn command_show_solido(
             .ok()
             .ok_or_else(|| CliError::new("Validator account data too small"))?;
         validator_commission_percentages.push(commission);
+        // On the chain, the validator's performance is stored in a separate
+        // account list, and it is written down in "first come, first serve" order.
+        // But here in the CLI, we join the two lists by validator pubkey,
+        // so that the two lists have the same indices.
+        let perf = available_perfs
+            .entries
+            .iter()
+            .find(|perf| &perf.validator_vote_account_address == validator.pubkey());
+        validator_perfs.push(perf.cloned());
     }
     let validators = validators
         .into_iter()
         .zip(validator_identities.into_iter())
         .zip(validator_infos.into_iter())
+        .zip(validator_perfs.into_iter())
         .zip(validator_commission_percentages.into_iter())
-        .map(|(((v, identity), info), commission)| (v, identity, info, commission))
+        .map(|((((v, identity), info), perf), commission)| (v, identity, info, perf, commission))
         .collect();
 
     Ok(ShowSolidoOutput {
