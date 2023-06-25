@@ -1007,6 +1007,12 @@ impl SolidoState {
         None
     }
 
+    /// Tell the program how well the validators are performing.
+    pub fn try_update_validator_perfs(&self) -> Option<MaintenanceInstruction> {
+        None.or_else(|| self.do_update_validator_perfs())
+            .or_else(|| self.do_update_validator_commission())
+    }
+
     /// Check if any validator's balance is outdated, and if so, update it.
     ///
     /// Merging stakes generates inactive stake that could be withdrawn with this transaction,
