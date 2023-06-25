@@ -967,8 +967,69 @@ impl SolidoState {
         Some(MaintenanceInstruction::new(instruction, task))
     }
 
-    /// Tell the program how well the validators are performing.
-    pub fn try_update_validator_perfs(&self) -> Option<MaintenanceInstruction> {
+    fn do_update_validator_commission(&self) -> Option<MaintenanceInstruction> {
+        for (validator, vote_state) in self
+            .validators
+            .entries
+            .iter()
+            .zip(self.validator_vote_accounts.iter())
+        {
+            let commission = vote_state
+                .as_ref()
+                .map(|vote_state| vote_state.commission)
+                .unwrap_or_default();
+
+            let perf = self
+                .validator_perfs
+                .entries
+                .iter()
+                .find(|perf| perf.validator_vote_account_address == *validator.pubkey());
+
+            // We should only overwrite the stored commission
+            // if it is beyond the allowed range, or if it is the epoch's end.
+            let should_update =
+                commission > self.solido.criteria.max_commission || self.is_at_epoch_end();
+            if !should_update {
+                continue;
+            }
+
+            let ValidatorPerf {
+                block_production_rate,
+                vote_success_rate,
+                uptime,
+                ..
+            } = perf.cloned().unwrap_or_default();
+
+            let instruction = lido::instruction::update_validator_perf(
+                &self.solido_program_id,
+                block_production_rate as u8,
+                vote_success_rate as u8,
+                uptime as u8,
+                &lido::instruction::UpdateValidatorPerfAccountsMeta {
+                    lido: self.solido_address,
+                    validator_vote_account_to_update: *validator.pubkey(),
+                    validator_list: self.solido.validator_list,
+                    validator_perf_list: self.solido.validator_perf_list,
+                },
+            );
+            let task = MaintenanceOutput::UpdateValidatorPerf {
+                validator_vote_account: *validator.pubkey(),
+                block_production_rate: block_production_rate as u8,
+                vote_success_rate: vote_success_rate as u8,
+                uptime: uptime as u8,
+            };
+            return Some(MaintenanceInstruction::new(instruction, task));
+        }
+
+        None
+    }
+
+    fn do_update_validator_perfs(&self) -> Option<MaintenanceInstruction> {
+        if !self.is_at_epoch_end() {
+            // We only update the off-chain part of the validator performance at the end of the epoch.
+            return None;
+        }
+
         for validator in self.validators.entries.iter() {
             let perf = self
                 .validator_perfs
@@ -983,11 +1044,15 @@ impl SolidoState {
                 continue;
             }
 
+            let block_production_rate = 77;
+            let vote_success_rate = 78;
+            let uptime = 79;
+
             let instruction = lido::instruction::update_validator_perf(
                 &self.solido_program_id,
-                0,
-                0,
-                0,
+                block_production_rate,
+                vote_success_rate,
+                uptime,
                 &lido::instruction::UpdateValidatorPerfAccountsMeta {
                     lido: self.solido_address,
                     validator_vote_account_to_update: *validator.pubkey(),
@@ -997,9 +1062,9 @@ impl SolidoState {
             );
             let task = MaintenanceOutput::UpdateValidatorPerf {
                 validator_vote_account: *validator.pubkey(),
-                block_production_rate: 0,
-                vote_success_rate: 0,
-                uptime: 0,
+                block_production_rate,
+                vote_success_rate,
+                uptime,
             };
             return Some(MaintenanceInstruction::new(instruction, task));
         }
