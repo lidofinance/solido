@@ -627,6 +627,32 @@ pub fn process_update_exchange_rate(
     lido.save(accounts.lido)
 }
 
+/// Mutably get the existing perf for the validator, or create a new one.
+fn perf_for(
+    validator_vote_account_address: Pubkey,
+    mut validator_perfs: crate::state::BigVecWithHeader<'_, ValidatorPerf>,
+) -> Result<&mut ValidatorPerf, ProgramError> {
+    let mut perf = {
+        let index = validator_perfs
+            .iter()
+            .position(|perf| perf.validator_vote_account_address == validator_vote_account_address);
+        match index {
+            None => {
+                validator_perfs.push(ValidatorPerf {
+                    validator_vote_account_address,
+                    ..Default::default()
+                })?;
+                validator_perfs.iter_mut().last().unwrap()
+            }
+            Some(index) => {
+                validator_perfs.get_mut(index as u32, &validator_vote_account_address)?
+            }
+        }
+    };
+    Ok(perf)
+}
+
+/// Update the off-chain part of the validator performance metrics.
 pub fn process_update_validator_perf(
     program_id: &Pubkey,
     block_production_rate: u8,
@@ -689,6 +715,15 @@ pub fn process_update_validator_perf(
         uptime,
     );
 
+    Ok(())
+}
+
+/// Update the on-chain part of the validator performance metrics.
+pub fn process_update_validator_perf_commission(
+    program_id: &Pubkey,
+    commission: u8,
+    raw_accounts: &[AccountInfo],
+) -> ProgramResult {
     Ok(())
 }
 
