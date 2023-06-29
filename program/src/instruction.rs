@@ -657,6 +657,49 @@ pub fn update_validator_perf(
     }
 }
 
+accounts_struct! {
+    UpdateValidatorPerfCommissionAccountsMeta,
+    UpdateValidatorPerfCommissionAccountsInfo {
+        pub lido {
+            is_signer: false,
+            is_writable: true,
+        },
+        pub validator_vote_account_to_update {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: true,
+        },
+
+        const sysvar_clock = sysvar::clock::id(),
+    }
+}
+
+pub fn update_validator_perf_commission(
+    program_id: &Pubkey,
+    block_production_rate: u8,
+    vote_success_rate: u8,
+    uptime: u8,
+    accounts: &UpdateValidatorPerfCommissionAccountsMeta,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::UpdateValidatorPerf {
+            block_production_rate,
+            vote_success_rate,
+            uptime,
+        }
+        .to_vec(),
+    }
+}
+
 // Changes the Fee spec
 // The new Fee structure is passed by argument and the recipients are passed here
 accounts_struct! {

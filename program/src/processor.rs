@@ -10,7 +10,8 @@ use crate::{
     instruction::{
         DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV2Info,
         StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateExchangeRateAccountsInfoV2,
-        UpdateStakeAccountBalanceInfo, UpdateValidatorPerfAccountsInfo, WithdrawAccountsInfoV2,
+        UpdateStakeAccountBalanceInfo, UpdateValidatorPerfAccountsInfo,
+        UpdateValidatorPerfCommissionAccountsInfo, WithdrawAccountsInfoV2,
     },
     logic::{
         burn_st_sol, check_account_data, check_account_owner, check_mint, check_rent_exempt,
@@ -28,10 +29,11 @@ use crate::{
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
         AccountType, Criteria, ExchangeRate, FeeRecipients, Lido, LidoV1, ListEntry, Maintainer,
-        MaintainerList, RewardDistribution, StakeDeposit, Validator, ValidatorList, ValidatorPerf,
-        ValidatorPerfList,
+        MaintainerList, OffchainValidatorPerf, RewardDistribution, StakeDeposit, Validator,
+        ValidatorList, ValidatorPerf, ValidatorPerfList,
     },
     token::{Lamports, Rational, StLamports},
+    vote_state::get_vote_account_commission,
     MAXIMUM_UNSTAKE_ACCOUNTS, MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT,
     STAKE_AUTHORITY, VALIDATOR_STAKE_ACCOUNT, VALIDATOR_UNSTAKE_ACCOUNT,
 };
@@ -663,9 +665,6 @@ pub fn process_update_validator_perf(
     let accounts = UpdateValidatorPerfAccountsInfo::try_from_slice(raw_accounts)?;
     let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
 
-    let block_production_rate = block_production_rate as u64;
-    let vote_success_rate = vote_success_rate as u64;
-    let uptime = uptime as u64;
     let validator_vote_account_address = *accounts.validator_vote_account_to_update.key;
 
     let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
@@ -675,41 +674,40 @@ pub fn process_update_validator_perf(
         validator_perf_list_data,
     )?;
 
-    let mut perf = {
-        let index = validator_perfs
-            .iter()
-            .position(|perf| perf.validator_vote_account_address == validator_vote_account_address);
-        match index {
-            None => {
-                validator_perfs.push(ValidatorPerf {
-                    validator_vote_account_address,
-                    ..Default::default()
-                })?;
-                validator_perfs.iter_mut().last().unwrap()
-            }
-            Some(index) => validator_perfs
-                .get_mut(index as u32, accounts.validator_vote_account_to_update.key)?,
-        }
-    };
+    let mut perf = perf_for(validator_vote_account_address, validator_perfs)?;
 
-    // Update could happen at most once per epoch:
+    let data = accounts.validator_vote_account_to_update.data.borrow();
+    let commission = get_vote_account_commission(&data)?;
+
+    // Update could happen at most once per epoch, or if the commission worsened:
     let clock = Clock::get()?;
-    if perf.computed_in_epoch >= clock.epoch {
+    if perf
+        .rest
+        .map_or(false, |rest| rest.updated_at >= clock.epoch)
+    {
         msg!(
-            "The block production rate was already updated in epoch {}.",
-            perf.computed_in_epoch
+            "The perf was already updated in epoch {}.",
+            perf.rest.unwrap().updated_at
         );
         msg!("It can only be done once per epoch, so we are going to abort this transaction.");
         return Err(LidoError::ValidatorPerfAlreadyUpdatedForEpoch.into());
     }
 
-    perf.computed_in_epoch = clock.epoch;
-    perf.block_production_rate = block_production_rate;
-    perf.vote_success_rate = vote_success_rate;
-    perf.uptime = uptime;
+    let block_production_rate = block_production_rate as u64;
+    let vote_success_rate = vote_success_rate as u64;
+    let uptime = uptime as u64;
+
+    perf.rest = Some(OffchainValidatorPerf {
+        updated_at: clock.epoch,
+        block_production_rate,
+        vote_success_rate,
+        uptime,
+    });
+
     msg!(
-        "Validator {} gets new perf: block_production_rate={}, vote_success_rate={}, uptime={}",
+        "Validator {} gets new perf: commission={}, block_production_rate={}, vote_success_rate={}, uptime={}",
         validator_vote_account_address,
+        commission,
         block_production_rate,
         vote_success_rate,
         uptime,
@@ -724,6 +722,42 @@ pub fn process_update_validator_perf_commission(
     commission: u8,
     raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
+    let accounts = UpdateValidatorPerfCommissionAccountsInfo::try_from_slice(raw_accounts)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let validator_vote_account_address = *accounts.validator_vote_account_to_update.key;
+
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let mut validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
+
+    let mut perf = perf_for(validator_vote_account_address, validator_perfs)?;
+
+    let data = accounts.validator_vote_account_to_update.data.borrow();
+    let commission = get_vote_account_commission(&data)?;
+
+    // Update could happen at most once per epoch, or if the commission worsened:
+    let clock = Clock::get()?;
+    if perf.commission_updated_at >= clock.epoch {
+        msg!(
+            "The commission was already updated in epoch {}.",
+            perf.commission_updated_at
+        );
+        msg!("It can only be done once per epoch, so we are going to abort this transaction.");
+        return Err(LidoError::ValidatorPerfAlreadyUpdatedForEpoch.into());
+    }
+
+    perf.commission_updated_at = clock.epoch;
+    perf.commission = commission;
+    msg!(
+        "Validator {} gets new commission in their perf: commission={}",
+        validator_vote_account_address,
+        commission
+    );
+
     Ok(())
 }
 
