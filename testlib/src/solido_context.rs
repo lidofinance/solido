@@ -1198,6 +1198,33 @@ impl Context {
             .expect("Failed to withdraw inactive stake.");
     }
 
+    /// Update the commission in the performance readings for the given validator.
+    pub async fn try_update_validator_perf_commission(
+        &mut self,
+        validator_vote_account: Pubkey,
+    ) -> transport::Result<()> {
+        send_transaction(
+            &mut self.context,
+            &[instruction::update_validator_perf_commission(
+                &id(),
+                &instruction::UpdateValidatorPerfCommissionAccountsMeta {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_update: validator_vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                    validator_perf_list: self.validator_perf_list.pubkey(),
+                },
+            )],
+            vec![],
+        )
+        .await
+    }
+
+    pub async fn update_validator_perf_commission(&mut self, validator_vote_account: Pubkey) {
+        self.try_update_validator_perf_commission(validator_vote_account)
+            .await
+            .expect("Validator performance metrics could always be updated");
+    }
+
     /// Update the perf account for the given validator with the given reading.
     pub async fn try_update_validator_perf(
         &mut self,
