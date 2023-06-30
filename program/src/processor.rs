@@ -630,28 +630,25 @@ pub fn process_update_exchange_rate(
 }
 
 /// Mutably get the existing perf for the validator, or create a new one.
-fn perf_for(
-    validator_vote_account_address: Pubkey,
-    mut validator_perfs: crate::state::BigVecWithHeader<'_, ValidatorPerf>,
-) -> Result<&mut ValidatorPerf, ProgramError> {
-    let mut perf = {
-        let index = validator_perfs
-            .iter()
-            .position(|perf| perf.validator_vote_account_address == validator_vote_account_address);
-        match index {
-            None => {
-                validator_perfs.push(ValidatorPerf {
-                    validator_vote_account_address,
-                    ..Default::default()
-                })?;
-                validator_perfs.iter_mut().last().unwrap()
-            }
-            Some(index) => {
-                validator_perfs.get_mut(index as u32, &validator_vote_account_address)?
-            }
+fn perf_for<'vec>(
+    validator_vote_account_address: &Pubkey,
+    validator_perfs: &'vec mut crate::state::BigVecWithHeader<'vec, ValidatorPerf>,
+) -> Result<&'vec mut ValidatorPerf, ProgramError> {
+    let index = validator_perfs
+        .iter()
+        .position(|perf| &perf.validator_vote_account_address == validator_vote_account_address);
+    let element = match index {
+        None => {
+            let validator_vote_account_address = validator_vote_account_address.to_owned();
+            validator_perfs.push(ValidatorPerf {
+                validator_vote_account_address,
+                ..Default::default()
+            })?;
+            validator_perfs.iter_mut().last().unwrap()
         }
+        Some(index) => validator_perfs.get_mut(index as u32, &validator_vote_account_address)?,
     };
-    Ok(perf)
+    Ok(element)
 }
 
 /// Update the off-chain part of the validator performance metrics.
@@ -674,7 +671,7 @@ pub fn process_update_validator_perf(
         validator_perf_list_data,
     )?;
 
-    let mut perf = perf_for(validator_vote_account_address, validator_perfs)?;
+    let mut perf = perf_for(&validator_vote_account_address, &mut validator_perfs)?;
 
     let data = accounts.validator_vote_account_to_update.data.borrow();
     let commission = get_vote_account_commission(&data)?;
@@ -683,11 +680,12 @@ pub fn process_update_validator_perf(
     let clock = Clock::get()?;
     if perf
         .rest
+        .as_ref()
         .map_or(false, |rest| rest.updated_at >= clock.epoch)
     {
         msg!(
             "The perf was already updated in epoch {}.",
-            perf.rest.unwrap().updated_at
+            perf.rest.as_ref().unwrap().updated_at
         );
         msg!("It can only be done once per epoch, so we are going to abort this transaction.");
         return Err(LidoError::ValidatorPerfAlreadyUpdatedForEpoch.into());
@@ -719,7 +717,6 @@ pub fn process_update_validator_perf(
 /// Update the on-chain part of the validator performance metrics.
 pub fn process_update_validator_perf_commission(
     program_id: &Pubkey,
-    commission: u8,
     raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
     let accounts = UpdateValidatorPerfCommissionAccountsInfo::try_from_slice(raw_accounts)?;
@@ -734,14 +731,14 @@ pub fn process_update_validator_perf_commission(
         validator_perf_list_data,
     )?;
 
-    let mut perf = perf_for(validator_vote_account_address, validator_perfs)?;
+    let mut perf = perf_for(&validator_vote_account_address, &mut validator_perfs)?;
 
     let data = accounts.validator_vote_account_to_update.data.borrow();
     let commission = get_vote_account_commission(&data)?;
 
     // Update could happen at most once per epoch, or if the commission worsened:
     let clock = Clock::get()?;
-    if perf.commission_updated_at >= clock.epoch {
+    if commission <= perf.commission && perf.commission_updated_at >= clock.epoch {
         msg!(
             "The commission was already updated in epoch {}.",
             perf.commission_updated_at
@@ -1341,6 +1338,9 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
             uptime,
             accounts,
         ),
+        LidoInstruction::UpdateValidatorPerfCommission => {
+            process_update_validator_perf_commission(program_id, accounts)
+        }
         LidoInstruction::WithdrawV2 {
             amount,
             validator_index,

@@ -164,6 +164,9 @@ pub enum LidoInstruction {
         uptime: u8,
     },
 
+    /// Update the performance metrics for a validator, but only its on-chain part.
+    UpdateValidatorPerfCommission,
+
     /// Withdraw a given amount of stSOL.
     ///
     /// Caller provides some `amount` of StLamports that are to be burned in

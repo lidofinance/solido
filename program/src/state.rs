@@ -406,7 +406,7 @@ impl ValidatorPerf {
     /// True only if these metrics meet the criteria.
     pub fn meets_criteria(&self, criteria: &Criteria) -> bool {
         self.commission <= criteria.max_commission
-            && self.rest.map_or(true, |perf| {
+            && self.rest.as_ref().map_or(true, |perf| {
                 perf.vote_success_rate >= (criteria.min_vote_success_rate as u64)
                     && perf.block_production_rate >= (criteria.min_block_production_rate as u64)
                     && perf.uptime >= (criteria.min_uptime as u64)
@@ -616,10 +616,9 @@ impl Default for ValidatorPerf {
     fn default() -> Self {
         ValidatorPerf {
             validator_vote_account_address: Pubkey::default(),
-            computed_in_epoch: Epoch::default(),
-            block_production_rate: u64::MAX as _,
-            vote_success_rate: u64::MAX as _,
-            uptime: u64::MAX as _,
+            commission: 0,
+            commission_updated_at: Epoch::default(),
+            rest: None,
         }
     }
 }
