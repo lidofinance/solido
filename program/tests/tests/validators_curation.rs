@@ -67,7 +67,7 @@ async fn test_curate_by_min_block_production_rate() {
 
     // And when the validator's block production rate for the epoch is observed:
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 98, 0, 0)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 98, 0, 0)
         .await;
     assert!(result.is_ok());
 
@@ -101,7 +101,7 @@ async fn test_curate_by_min_vote_success_rate() {
 
     // And when the validator's vote success rate for the epoch is observed:
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 0, 98, 0)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 0, 98, 0)
         .await;
     assert!(result.is_ok());
 
@@ -135,7 +135,7 @@ async fn test_curate_by_min_uptime() {
 
     // And when the validator's uptime for the epoch is observed:
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 0, 0, 98)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 0, 0, 98)
         .await;
     assert!(result.is_ok());
 
@@ -160,7 +160,7 @@ async fn test_update_block_production_rate() {
 
     // When an epoch passes, and the validator's block production rate is observed:
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 98, 0, 0)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 98, 0, 0)
         .await;
     assert!(result.is_ok());
 
@@ -172,7 +172,10 @@ async fn test_update_block_production_rate() {
         .iter()
         .find(|x| x.validator_vote_account_address == *validator.pubkey())
         .unwrap();
-    assert!(perf.block_production_rate == 98);
+    assert!(perf
+        .rest
+        .as_ref()
+        .map_or(false, |x| x.block_production_rate == 98));
 }
 
 #[tokio::test]
@@ -185,7 +188,7 @@ async fn test_update_vote_success_rate() {
 
     // When an epoch passes, and the validator's vote success rate is observed:
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 0, 98, 0)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 0, 98, 0)
         .await;
     assert!(result.is_ok());
 
@@ -197,7 +200,10 @@ async fn test_update_vote_success_rate() {
         .iter()
         .find(|x| x.validator_vote_account_address == *validator.pubkey())
         .unwrap();
-    assert!(perf.vote_success_rate == 98);
+    assert!(perf
+        .rest
+        .as_ref()
+        .map_or(false, |x| x.vote_success_rate == 98));
 }
 
 #[tokio::test]
@@ -210,7 +216,7 @@ async fn test_update_uptime() {
 
     // When an epoch passes, and the validator's uptime is observed:
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 0, 0, 98)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 0, 0, 98)
         .await;
     assert!(result.is_ok());
 
@@ -222,7 +228,7 @@ async fn test_update_uptime() {
         .iter()
         .find(|x| x.validator_vote_account_address == *validator.pubkey())
         .unwrap();
-    assert!(perf.uptime == 98);
+    assert!(perf.rest.as_ref().map_or(false, |x| x.uptime == 98));
 }
 
 #[tokio::test]
@@ -235,13 +241,13 @@ async fn test_uptime_updates_at_most_once_per_epoch() {
 
     // When the uptime of a validator gets updated:
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 0, 0, 98)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 0, 0, 98)
         .await;
     assert!(result.is_ok());
 
     // And when the uptime of the same validator gets updated again in the same epoch:
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 0, 0, 99)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 0, 0, 99)
         .await;
 
     // Then the second update fails:
@@ -252,7 +258,7 @@ async fn test_uptime_updates_at_most_once_per_epoch() {
 
     // Then the second update succeeds:
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 0, 0, 99)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 0, 0, 99)
         .await;
     assert!(result.is_ok());
 }
@@ -273,7 +279,7 @@ async fn test_bring_back() {
     assert_eq!(result.is_ok(), true);
 
     let result = context
-        .try_update_validator_perf(*validator.pubkey(), 0, 0, 98)
+        .try_update_offchain_validator_perf(*validator.pubkey(), 0, 0, 98)
         .await;
     assert_eq!(result.is_ok(), true);
 
@@ -283,9 +289,14 @@ async fn test_bring_back() {
     let validator = &context.get_solido().await.validators.entries[0];
     assert_eq!(validator.active, false);
 
-    // When the validator's performance is back to normal:
-    let result = context.try_reactivate_if_complies(*validator.pubkey());
-    assert_eq!(result.await.is_ok(), true);
+    // When the epoch passes:
+    context.advance_to_normal_epoch(1);
+
+    // And when the validator's performance is back to normal:
+    let result = context
+        .try_update_offchain_validator_perf(*validator.pubkey(), 0, 0, 101)
+        .await;
+    assert_eq!(result.is_ok(), true);
 
     // And when the instruction is issued:
     let result = context.try_reactivate_if_complies(*validator.pubkey());

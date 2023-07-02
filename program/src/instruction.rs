@@ -155,7 +155,7 @@ pub enum LidoInstruction {
     UpdateExchangeRateV2,
 
     /// Update the off-chain performance metrics for a validator.
-    UpdateValidatorPerf {
+    UpdateOffchainValidatorPerf {
         #[allow(dead_code)]
         block_production_rate: u8,
         #[allow(dead_code)]
@@ -165,7 +165,7 @@ pub enum LidoInstruction {
     },
 
     /// Update the performance metrics for a validator, but only its on-chain part.
-    UpdateValidatorPerfCommission,
+    UpdateOnchainValidatorPerf,
 
     /// Withdraw a given amount of stSOL.
     ///
@@ -641,7 +641,7 @@ accounts_struct! {
     }
 }
 
-pub fn update_validator_perf(
+pub fn update_offchain_validator_perf(
     program_id: &Pubkey,
     block_production_rate: u8,
     vote_success_rate: u8,
@@ -651,7 +651,7 @@ pub fn update_validator_perf(
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),
-        data: LidoInstruction::UpdateValidatorPerf {
+        data: LidoInstruction::UpdateOffchainValidatorPerf {
             block_production_rate,
             vote_success_rate,
             uptime,
@@ -684,22 +684,14 @@ accounts_struct! {
     }
 }
 
-pub fn update_validator_perf_commission(
+pub fn update_onchain_validator_perf(
     program_id: &Pubkey,
-    block_production_rate: u8,
-    vote_success_rate: u8,
-    uptime: u8,
     accounts: &UpdateValidatorPerfCommissionAccountsMeta,
 ) -> Instruction {
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),
-        data: LidoInstruction::UpdateValidatorPerf {
-            block_production_rate,
-            vote_success_rate,
-            uptime,
-        }
-        .to_vec(),
+        data: LidoInstruction::UpdateOnchainValidatorPerf.to_vec(),
     }
 }
 

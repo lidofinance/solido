@@ -652,7 +652,7 @@ fn perf_for<'vec>(
 }
 
 /// Update the off-chain part of the validator performance metrics.
-pub fn process_update_validator_perf(
+pub fn process_update_offchain_validator_perf(
     program_id: &Pubkey,
     block_production_rate: u8,
     vote_success_rate: u8,
@@ -715,7 +715,7 @@ pub fn process_update_validator_perf(
 }
 
 /// Update the on-chain part of the validator performance metrics.
-pub fn process_update_validator_perf_commission(
+pub fn process_update_onchain_validator_perf(
     program_id: &Pubkey,
     raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
@@ -1327,19 +1327,19 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::UpdateStakeAccountBalance { validator_index } => {
             process_update_stake_account_balance(program_id, validator_index, accounts)
         }
-        LidoInstruction::UpdateValidatorPerf {
+        LidoInstruction::UpdateOffchainValidatorPerf {
             block_production_rate,
             vote_success_rate,
             uptime,
-        } => process_update_validator_perf(
+        } => process_update_offchain_validator_perf(
             program_id,
             block_production_rate,
             vote_success_rate,
             uptime,
             accounts,
         ),
-        LidoInstruction::UpdateValidatorPerfCommission => {
-            process_update_validator_perf_commission(program_id, accounts)
+        LidoInstruction::UpdateOnchainValidatorPerf => {
+            process_update_onchain_validator_perf(program_id, accounts)
         }
         LidoInstruction::WithdrawV2 {
             amount,

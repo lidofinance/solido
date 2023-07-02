@@ -546,6 +546,11 @@ impl Validator {
         self.find_stake_account_address_with_authority(program_id, solido_account, &authority, seed)
     }
 
+    /// Mark the validator as active so that they could receive new stake.
+    pub fn activate(&mut self) {
+        self.active = true;
+    }
+
     /// Mark the validator as inactive so that no new stake can be delegated to it,
     /// and the existing stake shall be unstaked by the maintainer.
     pub fn deactivate(&mut self) {

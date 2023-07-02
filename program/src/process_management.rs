@@ -210,10 +210,74 @@ pub fn process_deactivate_if_violates(
 /// If necessary, reactivate a validator that was deactivated by
 /// `DeactivateIfViolates`.
 pub fn process_reactivate_if_complies(
-    _program_id: &Pubkey,
-    _accounts_raw: &[AccountInfo],
+    program_id: &Pubkey,
+    accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
-    todo!()
+    let accounts = DeactivateIfViolatesInfo::try_from_slice(accounts_raw)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
+
+    let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
+    let mut validators = lido.deserialize_account_list_info::<Validator>(
+        program_id,
+        accounts.validator_list,
+        validator_list_data,
+    )?;
+
+    // Find the validator in the list of validators.
+    let validator = validators
+        .iter_mut()
+        .find(|validator| validator.pubkey() == accounts.validator_vote_account_to_deactivate.key);
+    let validator = match validator {
+        Some(validator) => validator,
+        None => {
+            msg!(
+                "No such validator: {}.",
+                accounts.validator_vote_account_to_deactivate.key
+            );
+            return Err(LidoError::InvalidAccountInfo.into());
+        }
+    };
+
+    // Nothing to do if the validator is already active.
+    if validator.active {
+        return Ok(());
+    }
+
+    let should_be_inactive = if accounts.validator_vote_account_to_deactivate.owner
+        == &solana_program::vote::program::id()
+    {
+        // Find the validator's performance metrics.
+        let validator_perf = validator_perfs.iter().find(|perf| {
+            &perf.validator_vote_account_address
+                == accounts.validator_vote_account_to_deactivate.key
+        });
+
+        // And its commission.
+        let data = accounts.validator_vote_account_to_deactivate.data.borrow();
+        let commission = get_vote_account_commission(&data)?;
+
+        // If the validator does not perform well, deactivate it.
+        !does_perform_well(&lido.criteria, commission, validator_perf)
+    } else {
+        // The vote account is closed by node operator.
+        true
+    };
+    if should_be_inactive {
+        // Does not comply with the criteria, so do not reactivate.
+        return Ok(());
+    }
+
+    validator.activate();
+    msg!("Validator {} activated back.", validator.pubkey());
+
+    Ok(())
 }
 
 /// Adds a maintainer to the list of maintainers
