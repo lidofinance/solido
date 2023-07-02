@@ -10,8 +10,8 @@ use crate::{
     instruction::{
         DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV2Info,
         StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateExchangeRateAccountsInfoV2,
-        UpdateStakeAccountBalanceInfo, UpdateValidatorPerfAccountsInfo,
-        UpdateValidatorPerfCommissionAccountsInfo, WithdrawAccountsInfoV2,
+        UpdateOffchainValidatorPerfAccountsInfo, UpdateOnchainValidatorPerfAccountsInfo,
+        UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
     },
     logic::{
         burn_st_sol, check_account_data, check_account_owner, check_mint, check_rent_exempt,
@@ -646,7 +646,7 @@ fn perf_for<'vec>(
             })?;
             validator_perfs.iter_mut().last().unwrap()
         }
-        Some(index) => validator_perfs.get_mut(index as u32, &validator_vote_account_address)?,
+        Some(index) => validator_perfs.get_mut(index as u32, validator_vote_account_address)?,
     };
     Ok(element)
 }
@@ -659,7 +659,7 @@ pub fn process_update_offchain_validator_perf(
     uptime: u8,
     raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
-    let accounts = UpdateValidatorPerfAccountsInfo::try_from_slice(raw_accounts)?;
+    let accounts = UpdateOffchainValidatorPerfAccountsInfo::try_from_slice(raw_accounts)?;
     let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
 
     let validator_vote_account_address = *accounts.validator_vote_account_to_update.key;
@@ -719,7 +719,7 @@ pub fn process_update_onchain_validator_perf(
     program_id: &Pubkey,
     raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
-    let accounts = UpdateValidatorPerfCommissionAccountsInfo::try_from_slice(raw_accounts)?;
+    let accounts = UpdateOnchainValidatorPerfAccountsInfo::try_from_slice(raw_accounts)?;
     let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
 
     let validator_vote_account_address = *accounts.validator_vote_account_to_update.key;

@@ -619,7 +619,8 @@ pub fn update_exchange_rate(
 }
 
 accounts_struct! {
-    UpdateValidatorPerfAccountsMeta, UpdateValidatorPerfAccountsInfo {
+    UpdateOffchainValidatorPerfAccountsMeta,
+    UpdateOffchainValidatorPerfAccountsInfo {
         pub lido {
             is_signer: false,
             is_writable: true,
@@ -646,7 +647,7 @@ pub fn update_offchain_validator_perf(
     block_production_rate: u8,
     vote_success_rate: u8,
     uptime: u8,
-    accounts: &UpdateValidatorPerfAccountsMeta,
+    accounts: &UpdateOffchainValidatorPerfAccountsMeta,
 ) -> Instruction {
     Instruction {
         program_id: *program_id,
@@ -661,8 +662,8 @@ pub fn update_offchain_validator_perf(
 }
 
 accounts_struct! {
-    UpdateValidatorPerfCommissionAccountsMeta,
-    UpdateValidatorPerfCommissionAccountsInfo {
+    UpdateOnchainValidatorPerfAccountsMeta,
+    UpdateOnchainValidatorPerfAccountsInfo {
         pub lido {
             is_signer: false,
             is_writable: true,
@@ -686,7 +687,7 @@ accounts_struct! {
 
 pub fn update_onchain_validator_perf(
     program_id: &Pubkey,
-    accounts: &UpdateValidatorPerfCommissionAccountsMeta,
+    accounts: &UpdateOnchainValidatorPerfAccountsMeta,
 ) -> Instruction {
     Instruction {
         program_id: *program_id,
