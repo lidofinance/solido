@@ -385,7 +385,9 @@ pub struct OffchainValidatorPerf {
 /// unsafe pointer cast, which means that this structure cannot have any
 /// undeclared alignment-padding in its representation.
 #[repr(C)]
-#[derive(Clone, Debug, Eq, PartialEq, BorshDeserialize, BorshSerialize, BorshSchema, Serialize)]
+#[derive(
+    Clone, Debug, Default, Eq, PartialEq, BorshDeserialize, BorshSerialize, BorshSchema, Serialize,
+)]
 pub struct ValidatorPerf {
     /// The associated validator's vote account address.
     /// It might not be present in the validator list.
@@ -614,17 +616,6 @@ impl Pack for ValidatorPerf {
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         let unpacked = Self::try_from_slice(src)?;
         Ok(unpacked)
-    }
-}
-
-impl Default for ValidatorPerf {
-    fn default() -> Self {
-        ValidatorPerf {
-            validator_vote_account_address: Pubkey::default(),
-            commission: 0,
-            commission_updated_at: Epoch::default(),
-            rest: None,
-        }
     }
 }
 
