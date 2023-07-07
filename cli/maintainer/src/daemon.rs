@@ -43,8 +43,11 @@ struct MaintenanceMetrics {
     /// Number of times we performed `UpdateExchangeRate`.
     transactions_update_exchange_rate: u64,
 
-    /// Number of times we performed `UpdateValidatorPerf`.
-    transactions_update_validator_perf: u64,
+    /// Number of times we performed `UpdateOffchainValidatorPerf`.
+    transactions_update_offchain_validator_perf: u64,
+
+    /// Number of times we performed `UpdateOnchainValidatorPerf`.
+    transactions_update_onchain_validator_perf: u64,
 
     /// Number of times we performed `UpdateStakeAccountBalance`.
     transactions_update_stake_account_balance: u64,
@@ -125,8 +128,11 @@ impl MaintenanceMetrics {
             MaintenanceOutput::UpdateExchangeRate => {
                 self.transactions_update_exchange_rate += 1;
             }
-            MaintenanceOutput::UpdateValidatorPerf { .. } => {
-                self.transactions_update_validator_perf += 1;
+            MaintenanceOutput::UpdateOffchainValidatorPerf { .. } => {
+                self.transactions_update_offchain_validator_perf += 1;
+            }
+            MaintenanceOutput::UpdateOnchainValidatorPerf { .. } => {
+                self.transactions_update_onchain_validator_perf += 1;
             }
             MaintenanceOutput::UpdateStakeAccountBalance { .. } => {
                 self.transactions_update_stake_account_balance += 1;
@@ -301,7 +307,8 @@ impl<'a, 'b> Daemon<'a, 'b> {
             errors: 0,
             transactions_stake_deposit: 0,
             transactions_update_exchange_rate: 0,
-            transactions_update_validator_perf: 0,
+            transactions_update_offchain_validator_perf: 0,
+            transactions_update_onchain_validator_perf: 0,
             transactions_update_stake_account_balance: 0,
             transactions_merge_stake: 0,
             transactions_unstake_from_inactive_validator: 0,
@@ -533,7 +540,7 @@ fn start_http_server(
                     for request in server_clone.incoming_requests() {
                         // Ignore any errors; if we fail to respond, then there's little
                         // we can do about it here ... the client should just retry.
-                        let _ = serve_request(request, &*snapshot_mutex_clone);
+                        let _ = serve_request(request, &snapshot_mutex_clone);
                     }
                 })
                 .expect("Failed to spawn http handler thread.")

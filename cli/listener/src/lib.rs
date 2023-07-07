@@ -832,7 +832,7 @@ fn start_http_server(opts: &Opts, metrics_mutex: Arc<MetricsMutex>) -> Vec<JoinH
                     for request in server_clone.incoming_requests() {
                         // Ignore any errors; if we fail to respond, then there's little
                         // we can do about it here ... the client should just retry.
-                        let _ = serve_request(&conn, request, &*snapshot_mutex_clone);
+                        let _ = serve_request(&conn, request, &snapshot_mutex_clone);
                     }
                 })
                 .expect("Failed to spawn http handler thread.")

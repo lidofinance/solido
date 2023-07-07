@@ -690,12 +690,12 @@ impl fmt::Display for ShowSolidoOutput {
                 )?;
             }
 
-            writeln!(f, "    Performance readings:")?;
-            if let Some(perf) = perf {
+            writeln!(f, "    Off-chain performance readings:")?;
+            if let Some(Some(perf)) = perf.as_ref().map(|perf| &perf.rest) {
                 writeln!(
                     f,
-                    "      For the epoch:              {}",
-                    perf.computed_in_epoch
+                    "      For epoch                  #{}", // --
+                    perf.updated_at,
                 )?;
                 writeln!(
                     f,
@@ -711,6 +711,21 @@ impl fmt::Display for ShowSolidoOutput {
                     f,
                     "      Uptime:                     {}s/epoch", // --
                     perf.uptime
+                )?;
+            } else {
+                writeln!(f, "      Not yet collected.")?;
+            }
+            writeln!(f, "    On-chain performance readings:")?;
+            if let Some(perf) = perf {
+                writeln!(
+                    f,
+                    "      For epoch                  #{}",
+                    perf.commission_updated_at,
+                )?;
+                writeln!(
+                    f,
+                    "      Worst Commission:           {}%", // --
+                    perf.commission
                 )?;
             } else {
                 writeln!(f, "      Not yet collected.")?;
