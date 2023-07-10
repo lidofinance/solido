@@ -996,21 +996,34 @@ impl SolidoState {
     }
 
     fn do_update_onchain_validator_perfs(&self) -> Option<MaintenanceInstruction> {
-        for (validator, vote_state) in self
+        for (i, (validator, vote_state)) in self
             .validators
             .entries
             .iter()
             .zip(self.validator_vote_accounts.iter())
+            .enumerate()
         {
-            let commission = vote_state
-                .as_ref()
-                .map(|vote_state| vote_state.commission)
-                .unwrap_or_default();
+            let Some(vote_state) = vote_state else {
+                // Vote account is closed, so this validator shall be removed
+                // by a the subsequent `deactivate_if_violates` step.
+                continue;
+            };
+
+            let maybe_perf = self.validator_perfs[i].as_ref();
+
+            let reading_expired = maybe_perf
+                .map_or(true, |perf| self.clock.epoch > perf.commission_updated_at)
+                && self.is_at_epoch_end();
+
+            let current_commission = vote_state.commission;
+            let reading_worsened =
+                maybe_perf.map_or(false, |perf| current_commission > perf.commission);
+
+            let commission_exceeds_max = current_commission > self.solido.criteria.max_commission;
 
             // We should only overwrite the stored commission
-            // if it is beyond the allowed range, or if it is the epoch's end.
-            let should_update =
-                commission > self.solido.criteria.max_commission || self.is_at_epoch_end();
+            // if it is beyond the allowed range, or at the epoch's end.
+            let should_update = reading_expired || reading_worsened || commission_exceeds_max;
             if !should_update {
                 continue;
             }
@@ -1050,6 +1063,7 @@ impl SolidoState {
                 })
                 .unwrap_or(false)
             {
+                dbg!("already updated");
                 // This validator's performance has already been updated in this epoch, nothing to do.
                 continue;
             }
@@ -1084,8 +1098,8 @@ impl SolidoState {
 
     /// Tell the program how well the validators are performing.
     pub fn try_update_validator_perfs(&self) -> Option<MaintenanceInstruction> {
-        None.or_else(|| self.do_update_offchain_validator_perfs())
-            .or_else(|| self.do_update_onchain_validator_perfs())
+        None.or_else(|| self.do_update_onchain_validator_perfs())
+            .or_else(|| self.do_update_offchain_validator_perfs())
     }
 
     /// Check if any validator's balance is outdated, and if so, update it.
