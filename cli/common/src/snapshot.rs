@@ -216,6 +216,43 @@ impl<'a> Snapshot<'a> {
         }
     }
 
+    /// Get a map of leader identity pubkeys to a tuple of `(number of leader slots, number of blocks produced)`
+    /// along with the total number of slots.
+    pub fn get_all_block_production_rates(&self) -> crate::Result<HashMap<Pubkey, usize>> {
+        let response = self
+            .rpc_client
+            .get_block_production()
+            .map_err(|err| {
+                let wrapped_err = Error::from(err);
+                let result: Error = Box::new(wrapped_err);
+                result
+            })?
+            .value;
+
+        // Map the keys from textual form returned by the RPC to the decoded `Pubkey`,
+        // and the values to the rate.
+        let rates_of = response
+            .by_identity
+            .into_iter()
+            .map(|(key, (leader_slots, blocks_produced))| {
+                Pubkey::from_str(&key).map(|key| {
+                    let rate = if blocks_produced > 0 {
+                        leader_slots / blocks_produced
+                    } else {
+                        0
+                    };
+                    (key, rate)
+                })
+            })
+            .collect::<Result<HashMap<_, _>, _>>()
+            .map_err(|err| {
+                let result: Error = Box::new(err);
+                result
+            })?;
+
+        Ok(rates_of)
+    }
+
     /// Get list of accounts of type T from Solido
     pub fn get_account_list<T: ListEntry>(
         &mut self,

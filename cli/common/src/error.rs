@@ -88,6 +88,13 @@ impl AsPrettyError for MaintenanceError {
     }
 }
 
+impl AsPrettyError for ParsePubkeyError {
+    fn print_pretty(&self) {
+        print_red("Could parse a Pubkey:");
+        println!(" {:?}", self);
+    }
+}
+
 /// Something went wrong either while reading CLI arguments, or while using them.
 ///
 /// This can be a user error (e.g. an invalid Ledger path), or it can be something
