@@ -1054,15 +1054,12 @@ impl SolidoState {
 
         for (i, validator) in self.validators.entries.iter().enumerate() {
             let perf = self.validator_perfs[i].as_ref();
-            if perf
-                .map(|perf| {
-                    perf.rest
-                        .as_ref()
-                        .map(|rest| rest.updated_at >= self.clock.epoch)
-                        .unwrap_or(false)
-                })
-                .unwrap_or(false)
-            {
+            let should_update = perf.map_or(true, |perf| {
+                perf.rest
+                    .as_ref()
+                    .map_or(true, |rest| self.clock.epoch > rest.updated_at)
+            });
+            if !should_update {
                 dbg!("already updated");
                 // This validator's performance has already been updated in this epoch, nothing to do.
                 continue;
