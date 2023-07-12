@@ -23,7 +23,6 @@
 //! rare, and when they do happen, they shouldn’t happen repeatedly.
 
 use std::collections::{HashMap, HashSet};
-use std::ops::{Div, Mul};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -54,6 +53,7 @@ use spl_token::solana_program::hash::Hash;
 use crate::error::{
     self, Error, MissingAccountError, MissingValidatorInfoError, SerializationError,
 };
+use crate::per64::per64;
 use crate::validator_info_utils::ValidatorInfo;
 
 pub enum SnapshotError {
@@ -134,17 +134,6 @@ impl<T> std::ops::Deref for OrderedSet<T> {
     fn deref(&self) -> &[T] {
         self.elements_vec.deref()
     }
-}
-
-/// Scale the fraction of `numerator / denominator`
-/// to the range of `[0..u64::MAX]` and return just the numerator.
-fn per64(numerator: u64, denominator: u64) -> u64 {
-    let numerator = numerator as u128;
-    let denominator = denominator as u128;
-    let range_max = u64::MAX as u128;
-    let result = numerator.mul(range_max).div(denominator);
-    assert!(result <= range_max);
-    result as u64
 }
 
 /// A snapshot of one or more accounts.
