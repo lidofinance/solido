@@ -23,6 +23,7 @@
 //! rare, and when they do happen, they shouldn’t happen repeatedly.
 
 use std::collections::{HashMap, HashSet};
+use std::ops::{Div, Mul};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -46,7 +47,7 @@ use solana_sdk::transaction::Transaction;
 use solana_transaction_status::{TransactionDetails, UiTransactionEncoding};
 use solana_vote_program::vote_state::VoteState;
 
-use lido::state::{AccountList, Lido, ListEntry, ValidatorPerf};
+use lido::state::{AccountList, Lido, ListEntry};
 use lido::token::Lamports;
 use spl_token::solana_program::hash::Hash;
 
@@ -135,6 +136,17 @@ impl<T> std::ops::Deref for OrderedSet<T> {
     }
 }
 
+/// Scale the fraction of `numerator / denominator`
+/// to the range of `[0..u64::MAX]` and return just the numerator.
+fn per64(numerator: u64, denominator: u64) -> u64 {
+    let numerator = numerator as u128;
+    let denominator = denominator as u128;
+    let range_max = u64::MAX as u128;
+    let result = numerator.mul(range_max).div(denominator);
+    assert!(result <= range_max);
+    result as u64
+}
+
 /// A snapshot of one or more accounts.
 pub struct Snapshot<'a> {
     /// Addresses, and their values, at the time of the snapshot.
@@ -216,9 +228,11 @@ impl<'a> Snapshot<'a> {
         }
     }
 
-    /// Get a map of leader identity pubkeys to a tuple of `(number of leader slots, number of blocks produced)`
-    /// along with the total number of slots.
-    pub fn get_all_block_production_rates(&self) -> crate::Result<HashMap<Pubkey, usize>> {
+    /// Get a map of validator identities to a numerator of their block production rate.
+    /// It's like percentage, but it's per-2^64.
+    pub fn get_all_block_production_rates(&self) -> crate::Result<HashMap<Pubkey, u64>> {
+        assert!(std::mem::size_of::<u64>() >= std::mem::size_of::<usize>());
+
         let response = self
             .rpc_client
             .get_block_production()
@@ -237,7 +251,7 @@ impl<'a> Snapshot<'a> {
             .map(|(key, (leader_slots, blocks_produced))| {
                 Pubkey::from_str(&key).map(|key| {
                     let rate = if blocks_produced > 0 {
-                        leader_slots / blocks_produced
+                        per64(leader_slots as u64, blocks_produced as u64)
                     } else {
                         0
                     };
@@ -383,23 +397,6 @@ impl<'a> Snapshot<'a> {
             // We need to refresh our mapping.
             Err(SnapshotError::MissingValidatorIdentity(*validator_identity))
         }
-    }
-
-    /// Load and parse the validator performance data with the given address.
-    /// If there is no such data, return `None`.
-    pub fn get_validator_perf(&mut self, address: &Pubkey) -> crate::Result<ValidatorPerf> {
-        let account = self.get_account(address)?;
-        try_from_slice_unchecked::<ValidatorPerf>(&account.data).map_err(|err| {
-            let error: Error = Box::new(SerializationError {
-                cause: Some(err.into()),
-                address: *address,
-                context: format!(
-                    "Failed to deserialize ValidatorPerf struct, data length is {} bytes.",
-                    account.data.len()
-                ),
-            });
-            error.into()
-        })
     }
 
     /// Read the account and deserialize the Solido struct.

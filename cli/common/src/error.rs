@@ -8,7 +8,7 @@ use solana_client::client_error::{ClientError, ClientErrorKind};
 use solana_client::rpc_request::{RpcError, RpcResponseErrorData};
 use solana_program::instruction::InstructionError;
 use solana_program::program_error::ProgramError;
-use solana_program::pubkey::PubkeyError;
+use solana_program::pubkey::{ParsePubkeyError, PubkeyError};
 use solana_sdk::hash::ParseHashError;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::presigner::PresignerError;
