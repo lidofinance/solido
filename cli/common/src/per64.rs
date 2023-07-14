@@ -25,13 +25,14 @@ pub fn to_f64(x: u64) -> f64 {
 
 /// Parse a string like "50.5" into a `per64`.
 pub fn parse_from_fractional_percentage(s: &str) -> Result<u64, &'static str> {
-    let x = s
+    let percentage = s
         .parse::<f64>()
         .map_err(|_| "expected a percentage, like `6.9`")?;
-    if !(0.0..=100.0).contains(&x) {
+    if !(0.0..=100.0).contains(&percentage) {
         return Err("expected a percentage between 0 and 100");
     }
-    Ok(from_percentage((x * 100.0) as u64))
+    let part = percentage / 100.0;
+    Ok((part * (u64::MAX as f64)) as u64)
 }
 
 #[cfg(test)]
