@@ -28,7 +28,7 @@ pub fn parse_from_fractional_percentage(s: &str) -> Result<u64, &'static str> {
     let x = s
         .parse::<f64>()
         .map_err(|_| "expected a percentage, like `6.9`")?;
-    if x < 0.0 || x > 100.0 {
+    if !(0.0..=100.0).contains(&x) {
         return Err("expected a percentage between 0 and 100");
     }
     Ok(from_percentage((x * 100.0) as u64))
