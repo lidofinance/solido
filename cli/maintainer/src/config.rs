@@ -13,7 +13,7 @@ use solana_sdk::pubkey::{ParsePubkeyError, Pubkey};
 
 use lido::token::Lamports;
 use lido::token::StLamports;
-use solido_cli_common::snapshot::OutputMode;
+use solido_cli_common::{per64::parse_from_fractional_percentage, snapshot::OutputMode};
 
 pub fn get_option_from_config<T: FromStr>(
     name: &'static str,
@@ -253,20 +253,20 @@ cli_opt_struct! {
         max_maintainers: u32,
 
         /// The maximum validator fee a validator can have to be accepted by protocol.
-        #[clap(long, value_name = "int")]
+        #[clap(long, value_name = "percentage")]
         max_commission: u8,
 
         /// The minimum vote success rate a validator must have to not be deactivated.
-        #[clap(long, value_name = "int")]
-        min_vote_success_rate: u8,
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_vote_success_rate: u64,
 
         /// The minimum block production rate a validator must have to not be deactivated.
-        #[clap(long, value_name = "int")]
-        min_block_production_rate: u8,
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_block_production_rate: u64,
 
         /// The minimum block production rate a validator must have to not be deactivated.
-        #[clap(long, value_name = "int")]
-        min_uptime: u8,
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_uptime: u64,
 
         // See also the docs section of `create-solido` in main.rs for a description
         // of the fee shares.
@@ -502,16 +502,16 @@ cli_opt_struct! {
         max_commission: u8,
 
         /// Min block production rate that a validator must uphold.
-        #[clap(long, value_name = "rate")]
-        min_block_production_rate: u8,
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_block_production_rate: u64,
 
         /// Min vote success rate that a validator must uphold.
-        #[clap(long, value_name = "rate")]
-        min_vote_success_rate: u8,
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_vote_success_rate: u64,
 
         /// Min uptime that a validator must maintain.
-        #[clap(long, value_name = "rate")]
-        min_uptime: u8,
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_uptime: u64,
 
         /// Multisig instance.
         #[clap(long, value_name = "address")]

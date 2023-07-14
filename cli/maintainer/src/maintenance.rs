@@ -28,7 +28,7 @@ use solana_sdk::{
 };
 use solana_vote_program::vote_state::VoteState;
 use solido_cli_common::{
-    error::MaintenanceError, snapshot::SnapshotConfig, snapshot::SnapshotError,
+    error::MaintenanceError, per64::per64, snapshot::SnapshotConfig, snapshot::SnapshotError,
     validator_info_utils::ValidatorInfo, Result,
 };
 use spl_token::state::Mint;
@@ -69,9 +69,9 @@ pub enum MaintenanceOutput {
         // The vote account of the validator we want to update.
         #[serde(serialize_with = "serialize_b58")]
         validator_vote_account: Pubkey,
-        block_production_rate: u8,
-        vote_success_rate: u8,
-        uptime: u8,
+        block_production_rate: u64,
+        vote_success_rate: u64,
+        uptime: u64,
     },
 
     UpdateOnchainValidatorPerf {
