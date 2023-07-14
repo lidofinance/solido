@@ -28,8 +28,12 @@ use solana_sdk::{
 };
 use solana_vote_program::vote_state::VoteState;
 use solido_cli_common::{
-    error::MaintenanceError, per64::per64, snapshot::SnapshotConfig, snapshot::SnapshotError,
-    validator_info_utils::ValidatorInfo, Result,
+    error::MaintenanceError,
+    per64::{per64, to_f64},
+    snapshot::SnapshotConfig,
+    snapshot::SnapshotError,
+    validator_info_utils::ValidatorInfo,
+    Result,
 };
 use spl_token::state::Mint;
 
@@ -205,9 +209,21 @@ impl fmt::Display for MaintenanceOutput {
                     "  Validator vote account:     {}",
                     validator_vote_account
                 )?;
-                writeln!(f, "  New block production rate:  {}", block_production_rate)?;
-                writeln!(f, "  New vote success rate:      {}", vote_success_rate)?;
-                writeln!(f, "  New uptime:                 {}", uptime)?;
+                writeln!(
+                    f,
+                    "  New block production rate:  {:.2}%",
+                    100.0 * to_f64(*block_production_rate)
+                )?;
+                writeln!(
+                    f,
+                    "  New vote success rate:      {:.2}%",
+                    100.0 * to_f64(*vote_success_rate)
+                )?;
+                writeln!(
+                    f,
+                    "  New uptime:                 {:.2}%",
+                    100.0 * to_f64(*uptime)
+                )?;
             }
             MaintenanceOutput::UpdateOnchainValidatorPerf {
                 validator_vote_account,
@@ -1011,19 +1027,19 @@ impl SolidoState {
 
             let maybe_perf = self.validator_perfs[i].as_ref();
 
-            let reading_expired = maybe_perf
-                .map_or(true, |perf| self.clock.epoch > perf.commission_updated_at)
+            let expired = maybe_perf
+                .map_or(true, |perf| perf.commission_updated_at < self.clock.epoch)
                 && self.is_at_epoch_end();
 
             let current_commission = vote_state.commission;
-            let reading_worsened =
-                maybe_perf.map_or(false, |perf| current_commission > perf.commission);
-
-            let commission_exceeds_max = current_commission > self.solido.criteria.max_commission;
+            let exceeds_max = maybe_perf.map_or(false, |perf| {
+                current_commission > self.solido.criteria.max_commission
+                    && current_commission > perf.commission
+            });
 
             // We should only overwrite the stored commission
             // if it is beyond the allowed range, or at the epoch's end.
-            let should_update = reading_expired || reading_worsened || commission_exceeds_max;
+            let should_update = expired || exceeds_max;
             if !should_update {
                 continue;
             }

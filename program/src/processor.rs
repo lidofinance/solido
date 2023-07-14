@@ -676,7 +676,7 @@ pub fn process_update_offchain_validator_perf(
     let data = accounts.validator_vote_account_to_update.data.borrow();
     let commission = get_vote_account_commission(&data)?;
 
-    // Update could happen at most once per epoch, or if the commission worsened:
+    // Update could happen at most once per epoch:
     let clock = Clock::get()?;
     if perf
         .rest

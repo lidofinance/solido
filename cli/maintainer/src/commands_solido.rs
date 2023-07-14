@@ -26,6 +26,7 @@ use lido::{
 };
 use solido_cli_common::{
     error::{CliError, Error},
+    per64::to_f64,
     snapshot::{SnapshotClientConfig, SnapshotConfig},
     validator_info_utils::ValidatorInfo,
 };
@@ -604,18 +605,18 @@ impl fmt::Display for ShowSolidoOutput {
         )?;
         writeln!(
             f,
-            "  Min block production rate: {}/epoch",
-            self.solido.criteria.min_block_production_rate,
+            "  Min block production rate: {:.2}%",
+            100.0 * to_f64(self.solido.criteria.min_block_production_rate),
         )?;
         writeln!(
             f,
-            "  Min vote success rate:     {}/epoch",
-            self.solido.criteria.min_vote_success_rate,
+            "  Min vote success rate:     {:.2}%",
+            100.0 * to_f64(self.solido.criteria.min_vote_success_rate),
         )?;
         writeln!(
             f,
-            "  Min uptime:                {}s/epoch",
-            self.solido.criteria.min_uptime,
+            "  Min uptime:                {:.2}%",
+            100.0 * to_f64(self.solido.criteria.min_uptime),
         )?;
 
         writeln!(f, "\nValidator list {}", self.solido.validator_list)?;
@@ -699,18 +700,18 @@ impl fmt::Display for ShowSolidoOutput {
                 )?;
                 writeln!(
                     f,
-                    "      Block Production Rate:      {}/epoch",
-                    perf.block_production_rate
+                    "      Block Production Rate:      {:.2}%",
+                    100.0 * to_f64(perf.block_production_rate)
                 )?;
                 writeln!(
                     f,
-                    "      Vote Success Rate:          {}/epoch",
-                    perf.vote_success_rate
+                    "      Vote Success Rate:          {:.2}%",
+                    100.0 * to_f64(perf.vote_success_rate)
                 )?;
                 writeln!(
                     f,
-                    "      Uptime:                     {}s/epoch", // --
-                    perf.uptime
+                    "      Uptime:                     {:.2}%", // --
+                    100.0 * to_f64(perf.uptime)
                 )?;
             } else {
                 writeln!(f, "      Not yet collected.")?;
