@@ -735,9 +735,8 @@ pub fn process_update_onchain_validator_perf(
     // Update could happen at most once per epoch, or if the commission worsened:
     let clock = Clock::get()?;
     let current_expired = perf.commission_updated_at < clock.epoch;
-    let new_is_worse = commission > perf.commission;
-    let new_exceeds_max = commission > lido.criteria.max_commission;
-    let should_update = new_is_worse || new_exceeds_max || current_expired;
+    let new_exceeds_max = commission > lido.criteria.max_commission && commission > perf.commission;
+    let should_update = new_exceeds_max || current_expired;
     if !should_update {
         msg!(
             "The commission was already updated in epoch {}.",
