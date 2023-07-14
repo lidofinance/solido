@@ -246,7 +246,7 @@ impl Context {
             stake_authority,
             mint_authority,
             deterministic_keypair,
-            criteria: Criteria::new(5, 0, 0),
+            criteria: Criteria::new(5, 0, 0, 0),
         };
 
         result.st_sol_mint = result.create_mint(result.mint_authority).await;
@@ -1199,15 +1199,15 @@ impl Context {
     }
 
     /// Update the commission in the performance readings for the given validator.
-    pub async fn try_update_validator_perf_commission(
+    pub async fn try_update_onchain_validator_perf(
         &mut self,
         validator_vote_account: Pubkey,
     ) -> transport::Result<()> {
         send_transaction(
             &mut self.context,
-            &[instruction::update_validator_perf_commission(
+            &[instruction::update_onchain_validator_perf(
                 &id(),
-                &instruction::UpdateValidatorPerfCommissionAccountsMeta {
+                &instruction::UpdateOnchainValidatorPerfAccountsMeta {
                     lido: self.solido.pubkey(),
                     validator_vote_account_to_update: validator_vote_account,
                     validator_list: self.validator_list.pubkey(),
@@ -1219,28 +1219,31 @@ impl Context {
         .await
     }
 
-    pub async fn update_validator_perf_commission(&mut self, validator_vote_account: Pubkey) {
-        self.try_update_validator_perf_commission(validator_vote_account)
+    pub async fn update_onchain_validator_perf_commission(
+        &mut self,
+        validator_vote_account: Pubkey,
+    ) {
+        self.try_update_onchain_validator_perf(validator_vote_account)
             .await
             .expect("Validator performance metrics could always be updated");
     }
 
     /// Update the perf account for the given validator with the given reading.
-    pub async fn try_update_validator_perf(
+    pub async fn try_update_offchain_validator_perf(
         &mut self,
         validator_vote_account: Pubkey,
-        new_block_production_rate: u8,
-        new_vote_success_rate: u8,
-        new_uptime: u8,
+        new_block_production_rate: u64,
+        new_vote_success_rate: u64,
+        new_uptime: u64,
     ) -> transport::Result<()> {
         send_transaction(
             &mut self.context,
-            &[instruction::update_validator_perf(
+            &[instruction::update_offchain_validator_perf(
                 &id(),
                 new_block_production_rate,
                 new_vote_success_rate,
                 new_uptime,
-                &instruction::UpdateValidatorPerfAccountsMeta {
+                &instruction::UpdateOffchainValidatorPerfAccountsMeta {
                     lido: self.solido.pubkey(),
                     validator_vote_account_to_update: validator_vote_account,
                     validator_list: self.validator_list.pubkey(),
@@ -1252,14 +1255,14 @@ impl Context {
         .await
     }
 
-    pub async fn update_validator_perf(
+    pub async fn update_offchain_validator_perf(
         &mut self,
         validator_vote_account: Pubkey,
-        new_block_production_rate: u8,
-        new_vote_success_rate: u8,
-        new_uptime: u8,
+        new_block_production_rate: u64,
+        new_vote_success_rate: u64,
+        new_uptime: u64,
     ) {
-        self.try_update_validator_perf(
+        self.try_update_offchain_validator_perf(
             validator_vote_account,
             new_block_production_rate,
             new_vote_success_rate,

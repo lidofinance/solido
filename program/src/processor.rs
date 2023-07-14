@@ -654,9 +654,9 @@ fn perf_for<'vec>(
 /// Update the off-chain part of the validator performance metrics.
 pub fn process_update_offchain_validator_perf(
     program_id: &Pubkey,
-    block_production_rate: u8,
-    vote_success_rate: u8,
-    uptime: u8,
+    block_production_rate: u64,
+    vote_success_rate: u64,
+    uptime: u64,
     raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
     let accounts = UpdateOffchainValidatorPerfAccountsInfo::try_from_slice(raw_accounts)?;
@@ -690,10 +690,6 @@ pub fn process_update_offchain_validator_perf(
         msg!("It can only be done once per epoch, so we are going to abort this transaction.");
         return Err(LidoError::ValidatorPerfAlreadyUpdatedForEpoch.into());
     }
-
-    let block_production_rate = block_production_rate as u64;
-    let vote_success_rate = vote_success_rate as u64;
-    let uptime = uptime as u64;
 
     perf.rest = Some(OffchainValidatorPerf {
         updated_at: clock.epoch,
