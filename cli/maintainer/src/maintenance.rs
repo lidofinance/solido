@@ -229,7 +229,11 @@ impl fmt::Display for MaintenanceOutput {
                 validator_vote_account,
             } => {
                 writeln!(f, "Updated on-chain validator performance.")?;
-                writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
+                writeln!(
+                    f,
+                    "  Validator vote account:     {}",
+                    validator_vote_account
+                )?;
             }
             MaintenanceOutput::MergeStake {
                 validator_vote_account,
