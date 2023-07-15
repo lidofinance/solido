@@ -32,7 +32,10 @@ pub fn parse_from_fractional_percentage(s: &str) -> Result<u64, &'static str> {
         return Err("expected a percentage between 0 and 100");
     }
     let part = percentage / 100.0;
-    Ok((part * (u64::MAX as f64)) as u64)
+    let range_max = u64::MAX as f64;
+    let x = part * range_max;
+    let x = x as u64;
+    Ok(x)
 }
 
 #[cfg(test)]
