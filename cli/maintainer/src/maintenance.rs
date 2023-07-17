@@ -113,10 +113,6 @@ pub enum MaintenanceOutput {
     },
 
     UnstakeFromInactiveValidator(Unstake),
-    RemoveValidator {
-        #[serde(serialize_with = "serialize_b58")]
-        validator_vote_account: Pubkey,
-    },
     DeactivateIfViolates {
         #[serde(serialize_with = "serialize_b58")]
         validator_vote_account: Pubkey,
@@ -261,20 +257,10 @@ impl fmt::Display for MaintenanceOutput {
             MaintenanceOutput::UnstakeFromActiveValidator(unstake) => {
                 writeln!(f, "Unstake from active validator\n{}", unstake)?;
             }
-            MaintenanceOutput::RemoveValidator {
-                validator_vote_account,
-            } => {
-                writeln!(f, "Remove validator")?;
-                writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
-            }
             MaintenanceOutput::DeactivateIfViolates {
                 validator_vote_account,
             } => {
-                writeln!(f, "Check max commission violation.")?;
-                writeln!(
-                    f,
-                    "Deactivate validator that charges more commission than we allow."
-                )?;
+                writeln!(f, "Deactivate a validator that fails to meet our criteria.")?;
                 writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
             }
         }

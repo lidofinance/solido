@@ -143,9 +143,6 @@ impl MaintenanceMetrics {
             MaintenanceOutput::UnstakeFromInactiveValidator { .. } => {
                 self.transactions_unstake_from_inactive_validator += 1;
             }
-            MaintenanceOutput::RemoveValidator { .. } => {
-                self.transactions_remove_validator += 1;
-            }
             MaintenanceOutput::DeactivateIfViolates { .. } => {
                 self.transactions_deactivate_if_violates += 1;
             }
