@@ -16,8 +16,8 @@ use lido::{
     metrics::LamportsHistogram,
     processor::StakeType,
     state::{
-        AccountList, Criteria, Lido, ListEntry, Maintainer, RewardDistribution, Validator,
-        ValidatorPerf,
+        AccountList, Criteria, Lido, ListEntry, Maintainer, RewardDistribution, SeedRange,
+        Validator, ValidatorPerf,
     },
     token::{Lamports, StLamports},
     util::serialize_b58,
@@ -446,6 +446,28 @@ pub fn command_remove_maintainer(
     )
 }
 
+/// `Validator` structure with all the fields from its related struct
+/// joined by its `Pubkey`.
+#[derive(Serialize)]
+pub struct RichValidator {
+    #[serde(serialize_with = "serialize_b58")]
+    pub vote_account_address: Pubkey,
+    pub stake_seeds: SeedRange,
+    pub unstake_seeds: SeedRange,
+    pub stake_accounts_balance: Lamports,
+    pub unstake_accounts_balance: Lamports,
+    pub effective_stake_balance: Lamports,
+    pub active: bool,
+
+    #[serde(serialize_with = "serialize_b58")]
+    pub identity_account_address: Pubkey,
+
+    pub info: ValidatorInfo,
+    pub perf: Option<ValidatorPerf>,
+
+    pub commission: u8,
+}
+
 #[derive(Serialize)]
 pub struct ShowSolidoOutput {
     pub solido: Lido,
@@ -468,13 +490,52 @@ pub struct ShowSolidoOutput {
     /// Validator structure as the program sees it, along with the validator's
     /// identity account address, their info, their performance data,
     /// and their commission percentage.
-    pub validators: Vec<(Validator, Pubkey, ValidatorInfo, Option<ValidatorPerf>, u8)>,
+    pub validators: Vec<RichValidator>,
     pub validators_max: u32,
 
     pub maintainers: Vec<Maintainer>,
     pub maintainers_max: u32,
 
     pub reserve_account_balance: Lamports,
+}
+
+pub const VALIDATOR_STAKE_ACCOUNT: &[u8] = b"validator_stake_account";
+pub const VALIDATOR_UNSTAKE_ACCOUNT: &[u8] = b"validator_unstake_account";
+
+fn find_stake_account_address_with_authority(
+    vote_account_address: &Pubkey,
+    program_id: &Pubkey,
+    solido_account: &Pubkey,
+    authority: &[u8],
+    seed: u64,
+) -> (Pubkey, u8) {
+    let seeds = [
+        &solido_account.to_bytes(),
+        &vote_account_address.to_bytes(),
+        authority,
+        &seed.to_le_bytes()[..],
+    ];
+    Pubkey::find_program_address(&seeds, program_id)
+}
+
+fn find_stake_account_address(
+    vote_account_address: &Pubkey,
+    program_id: &Pubkey,
+    solido_account: &Pubkey,
+    seed: u64,
+    stake_type: StakeType,
+) -> (Pubkey, u8) {
+    let authority = match stake_type {
+        StakeType::Stake => VALIDATOR_STAKE_ACCOUNT,
+        StakeType::Unstake => VALIDATOR_UNSTAKE_ACCOUNT,
+    };
+    find_stake_account_address_with_authority(
+        vote_account_address,
+        program_id,
+        solido_account,
+        authority,
+        seed,
+    )
 }
 
 impl fmt::Display for ShowSolidoOutput {
@@ -626,7 +687,7 @@ impl fmt::Display for ShowSolidoOutput {
             self.validators.len(),
             self.validators_max,
         )?;
-        for (v, identity, info, perf, commission) in self.validators.iter() {
+        for v in self.validators.iter() {
             writeln!(
                 f,
                 "\n  - \
@@ -639,14 +700,14 @@ impl fmt::Display for ShowSolidoOutput {
                 Stake in all accounts:     {}\n    \
                 Stake in stake accounts:   {}\n    \
                 Stake in unstake accounts: {}",
-                info.name,
-                match &info.keybase_username {
+                v.info.name,
+                match &v.info.keybase_username {
                     Some(username) => &username[..],
                     None => "not set",
                 },
-                v.pubkey(),
-                identity,
-                commission,
+                v.vote_account_address,
+                v.identity_account_address,
+                v.commission,
                 v.active,
                 v.stake_accounts_balance,
                 v.effective_stake_balance,
@@ -662,7 +723,8 @@ impl fmt::Display for ShowSolidoOutput {
                     f,
                     "      - {}: {}",
                     seed,
-                    v.find_stake_account_address(
+                    find_stake_account_address(
+                        &v.vote_account_address,
                         &self.solido_program_id,
                         &self.solido_address,
                         seed,
@@ -681,7 +743,8 @@ impl fmt::Display for ShowSolidoOutput {
                     f,
                     "      - {}: {}",
                     seed,
-                    v.find_stake_account_address(
+                    find_stake_account_address(
+                        &v.vote_account_address,
                         &self.solido_program_id,
                         &self.solido_address,
                         seed,
@@ -692,7 +755,7 @@ impl fmt::Display for ShowSolidoOutput {
             }
 
             writeln!(f, "    Off-chain performance readings:")?;
-            if let Some(Some(perf)) = perf.as_ref().map(|perf| &perf.rest) {
+            if let Some(Some(perf)) = v.perf.as_ref().map(|perf| &perf.rest) {
                 writeln!(
                     f,
                     "      For epoch                  #{}", // --
@@ -717,7 +780,7 @@ impl fmt::Display for ShowSolidoOutput {
                 writeln!(f, "      Not yet collected.")?;
             }
             writeln!(f, "    On-chain performance readings:")?;
-            if let Some(perf) = perf {
+            if let Some(perf) = &v.perf {
                 writeln!(
                     f,
                     "      For epoch                  #{}",
@@ -804,7 +867,21 @@ pub fn command_show_solido(
         .zip(validator_infos.into_iter())
         .zip(validator_perfs.into_iter())
         .zip(validator_commission_percentages.into_iter())
-        .map(|((((v, identity), info), perf), commission)| (v, identity, info, perf, commission))
+        .map(
+            |((((v, identity), info), perf), commission)| RichValidator {
+                vote_account_address: v.pubkey().to_owned(),
+                stake_seeds: v.stake_seeds,
+                unstake_seeds: v.unstake_seeds,
+                stake_accounts_balance: v.stake_accounts_balance,
+                unstake_accounts_balance: v.unstake_accounts_balance,
+                effective_stake_balance: v.effective_stake_balance,
+                active: v.active,
+                identity_account_address: identity,
+                info,
+                perf,
+                commission,
+            },
+        )
         .collect();
 
     Ok(ShowSolidoOutput {
