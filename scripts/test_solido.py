@@ -718,12 +718,12 @@ expected_result = {
     }
 }
 
-print('\nRunning maintenance (should remove the validator) ...')
+print('\nRunning maintenance (should not remove the validator) ...')
 result = perform_maintenance()
 expected_result = {
     'RemoveValidator': {'validator_vote_account': validator.vote_account.pubkey}
 }
-assert result == expected_result, f'\nExpected: {expected_result}\nActual:   {result}'
+assert result is None
 
 solido_instance = solido(
     'show-solido',
