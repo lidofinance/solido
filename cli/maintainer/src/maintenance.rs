@@ -336,6 +336,10 @@ pub struct SolidoState {
     pub validator_perfs: Vec<Option<ValidatorPerf>>,
 
     /// For each validator, in the same order as in `solido.validators`, holds
+    /// the block production rate scaled by `u64::MAX`.
+    pub validator_block_production_rates: Vec<Option<u64>>,
+
+    /// For each validator, in the same order as in `solido.validators`, holds
     /// the validator info (name and Keybase username).
     pub validator_infos: Vec<ValidatorInfo>,
 
@@ -466,7 +470,7 @@ impl SolidoState {
         denominator: 10,
     };
 
-    /// Read the state from the on-chain data.
+    /// Capture the snapshot of the state related to Solido.
     pub fn new(
         config: &mut SnapshotConfig,
         solido_program_id: &Pubkey,
@@ -497,12 +501,15 @@ impl SolidoState {
         let epoch_schedule = config.client.get_epoch_schedule()?;
         let stake_history = config.client.get_stake_history()?;
 
+        let all_block_production_rates = config.client.get_all_block_production_rates()?;
+
         let mut validator_stake_accounts = Vec::new();
         let mut validator_unstake_accounts = Vec::new();
         let mut validator_vote_account_balances = Vec::new();
         let mut validator_identity_account_balances = Vec::new();
         let mut validator_vote_accounts = Vec::new();
         let mut validator_perfs = Vec::new();
+        let mut validator_block_production_rates = Vec::new();
         let mut validator_infos = Vec::new();
         for validator in validators.entries.iter() {
             match config.client.get_account(validator.pubkey()) {
@@ -514,6 +521,10 @@ impl SolidoState {
                         .iter()
                         .find(|perf| perf.pubkey() == validator.pubkey());
                     validator_perfs.push(maybe_perf.cloned());
+
+                    let maybe_block_production_rate =
+                        all_block_production_rates.get(&vote_state.node_pubkey);
+                    validator_block_production_rates.push(maybe_block_production_rate.cloned());
 
                     // prometheus
                     validator_vote_account_balances
@@ -583,6 +594,7 @@ impl SolidoState {
             validator_vote_accounts,
             validator_identity_account_balances,
             validator_perfs,
+            validator_block_production_rates,
             validator_infos,
             maintainer_balances,
             reserve_address,
@@ -1041,14 +1053,24 @@ impl SolidoState {
                     .map_or(true, |rest| self.clock.epoch > rest.updated_at)
             });
             if !should_update {
-                dbg!("already updated");
                 // This validator's performance has already been updated in this epoch, nothing to do.
                 continue;
             }
 
-            let block_production_rate = 77;
-            let vote_success_rate = 78;
-            let uptime = 79;
+            let Some(vote_state) = self.validator_vote_accounts[i].as_ref() else {
+                // Vote account is closed, so this validator shall be removed
+                // by a subsequent `deactivate_if_violates` step.
+                continue;
+            };
+
+            let block_production_rate =
+                self.validator_block_production_rates[i].unwrap_or(u64::MAX);
+
+            let slots_per_epoch = self.epoch_schedule.get_slots_in_epoch(self.clock.epoch);
+            let vote_success_rate =
+                per64(vote_state.credits().min(slots_per_epoch), slots_per_epoch);
+
+            let uptime = 0;
 
             let instruction = lido::instruction::update_offchain_validator_perf(
                 &self.solido_program_id,
@@ -1612,11 +1634,15 @@ impl SolidoState {
         }
     }
 
-    pub fn is_at_epoch_end(&self) -> bool {
+    pub fn slots_into_current_epoch(&self) -> u64 {
         let first_slot_in_current_epoch = self
             .epoch_schedule
             .get_first_slot_in_epoch(self.clock.epoch);
-        let slots_into_current_epoch = self.clock.slot - first_slot_in_current_epoch;
+        self.clock.slot - first_slot_in_current_epoch
+    }
+
+    pub fn is_at_epoch_end(&self) -> bool {
+        let slots_into_current_epoch = self.slots_into_current_epoch();
         let slots_per_epoch = self.epoch_schedule.get_slots_in_epoch(self.clock.epoch);
 
         let epoch_progress = Rational {
@@ -1771,6 +1797,7 @@ mod test {
             validator_vote_accounts: vec![],
             validator_identity_account_balances: vec![],
             validator_perfs: vec![],
+            validator_block_production_rates: vec![],
             validator_infos: vec![],
             maintainer_balances: vec![],
             st_sol_mint: Mint::default(),
