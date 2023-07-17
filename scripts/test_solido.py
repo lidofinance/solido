@@ -341,15 +341,18 @@ solido_instance = solido(
     solido_address,
 )
 
-assert solido_instance['validators']['entries'][0] == {
-    'pubkey': validator.vote_account.pubkey,
-    'stake_seeds': {'begin': 0, 'end': 0},
-    'unstake_seeds': {'begin': 0, 'end': 0},
-    'stake_accounts_balance': 0,
-    'unstake_accounts_balance': 0,
-    'effective_stake_balance': 0,
-    'active': True,
-}, f'Unexpected validator entry, in {json.dumps(solido_instance, indent=True)}'
+v = solido_instance['validators'][0]
+assert (
+    True
+    and v['vote_account_address'] == validator.vote_account.pubkey
+    and v['stake_seeds'] == {'begin': 0, 'end': 0}
+    and v['unstake_seeds'] == {'begin': 0, 'end': 0}
+    and v['stake_accounts_balance'] == 0
+    and v['unstake_accounts_balance'] == 0
+    and v['effective_stake_balance'] == 0
+    and v['active'] == True
+    and v['commission'] == 5
+), f'Unexpected validator entry, in {json.dumps(solido_instance, indent=True)}'
 
 maintainer = create_test_account('tests/.keys/maintainer-account-key.json')
 
@@ -381,7 +384,7 @@ solido_instance = solido(
     solido_address,
 )
 
-assert solido_instance['maintainers']['entries'][0] == {'pubkey': maintainer.pubkey}
+assert solido_instance['maintainers'][0] == {'pubkey': maintainer.pubkey}
 
 print(f'> Removing maintainer {maintainer}')
 transaction_result = solido(
@@ -408,7 +411,7 @@ solido_instance = solido(
     solido_address,
 )
 
-assert len(solido_instance['maintainers']['entries']) == 0
+assert len(solido_instance['maintainers']) == 0
 
 print(f'> Adding maintainer {maintainer} again')
 transaction_result = solido(
@@ -580,7 +583,7 @@ expected_result = {
     'UpdateStakeAccountBalance': {
         'validator_vote_account': validator.vote_account.pubkey,
         'expected_difference_stake_lamports': 100_000_000,  # We donated 0.1 SOL.
-        'unstake_withdrawn_to_reserve_lamports': 1_499_750_000,  # Amount that was unstaked for the newcomming validator.
+        'unstake_withdrawn_to_reserve_lamports': 1_499_750_000,  # Amount that was unstaked for the newcoming validator.
     }
 }
 
@@ -661,7 +664,7 @@ solido_instance = solido(
     '--solido-address',
     solido_address,
 )
-assert not solido_instance['validators']['entries'][0][
+assert not solido_instance['validators'][0][
     'active'
 ], 'Validator should be inactive after deactivation.'
 print('> Validator is inactive as expected.')
@@ -689,7 +692,7 @@ solido_instance = solido(
     solido_address,
 )
 # Should have bumped the validator's `stake_seeds` and `unstake_seeds`.
-val = solido_instance['validators']['entries'][0]
+val = solido_instance['validators'][0]
 assert val['stake_seeds'] == {'begin': 1, 'end': 1}
 assert val['unstake_seeds'] == {'begin': 1, 'end': 2}
 
@@ -729,7 +732,7 @@ solido_instance = solido(
     '--solido-address',
     solido_address,
 )
-number_validators = len(solido_instance['validators']['entries'])
+number_validators = len(solido_instance['validators'])
 assert (
     number_validators == 1
 ), f'\nExpected no validators\nGot: {number_validators} validators'
@@ -838,7 +841,7 @@ solido_instance = solido(
     '--solido-address',
     solido_address,
 )
-number_validators = len(solido_instance['validators']['entries'])
+number_validators = len(solido_instance['validators'])
 assert (
     number_validators == 2
 ), f'\nExpected 2 validators\nGot: {number_validators} validators'
@@ -861,7 +864,7 @@ solido_instance = solido(
     '--solido-address',
     solido_address,
 )
-number_validators = len(solido_instance['validators']['entries'])
+number_validators = len(solido_instance['validators'])
 assert number_validators == 0
 
 
