@@ -117,6 +117,10 @@ pub enum MaintenanceOutput {
         #[serde(serialize_with = "serialize_b58")]
         validator_vote_account: Pubkey,
     },
+    ReactivateIfComplies {
+        #[serde(serialize_with = "serialize_b58")]
+        validator_vote_account: Pubkey,
+    },
     UnstakeFromActiveValidator(Unstake),
 }
 
@@ -261,6 +265,12 @@ impl fmt::Display for MaintenanceOutput {
                 validator_vote_account,
             } => {
                 writeln!(f, "Deactivate a validator that fails to meet our criteria.")?;
+                writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
+            }
+            MaintenanceOutput::ReactivateIfComplies {
+                validator_vote_account,
+            } => {
+                writeln!(f, "Reactivate a validator that meets our criteria.")?;
                 writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
             }
         }
@@ -852,6 +862,11 @@ impl SolidoState {
 
     /// If a validator is back into the commission limit, try to bring it back.
     pub fn try_reactivate_if_complies(&self) -> Option<MaintenanceInstruction> {
+        if !self.is_at_epoch_end() {
+            // We only try to reactivate them at the end of the epoch.
+            return None;
+        }
+
         for (i, (validator, vote_state)) in self
             .validators
             .entries
@@ -859,41 +874,33 @@ impl SolidoState {
             .zip(self.validator_vote_accounts.iter())
             .enumerate()
         {
-            if validator.active {
-                // Already active, so nothing to do.
-                continue;
+            // We are only interested in validators that are inactive,
+            // and are now performing well.
+            //
+            // If the vote account is closed, no need to reactivate.
+            if !validator.active
+                && vote_state.as_ref().map_or(false, |vote_state| {
+                    does_perform_well(
+                        &self.solido.criteria,
+                        vote_state.commission,
+                        self.validator_perfs[i].as_ref(),
+                    )
+                })
+            {
+                let task = MaintenanceOutput::ReactivateIfComplies {
+                    validator_vote_account: *validator.pubkey(),
+                };
+                let instruction = lido::instruction::reactivate_if_complies(
+                    &self.solido_program_id,
+                    &lido::instruction::ReactivateIfCompliesMeta {
+                        lido: self.solido_address,
+                        validator_vote_account_to_reactivate: *validator.pubkey(),
+                        validator_list: self.solido.validator_list,
+                        validator_perf_list: self.solido.validator_perf_list,
+                    },
+                );
+                return Some(MaintenanceInstruction::new(instruction, task));
             }
-
-            // We are only interested in previously deactivated validators
-            // that are now performing well.
-            if let Some(vote_state) = vote_state {
-                if !does_perform_well(
-                    &self.solido.criteria,
-                    vote_state.commission,
-                    self.validator_perfs[i].as_ref(),
-                ) {
-                    // Validator is still not performing well, no need to reactivate.
-                    continue;
-                }
-            } else {
-                // Vote account is closed -- nothing to do here.
-                continue;
-            }
-
-            let task = MaintenanceOutput::DeactivateIfViolates {
-                validator_vote_account: *validator.pubkey(),
-            };
-
-            let instruction = lido::instruction::deactivate_if_violates(
-                &self.solido_program_id,
-                &lido::instruction::DeactivateIfViolatesMeta {
-                    lido: self.solido_address,
-                    validator_vote_account_to_deactivate: *validator.pubkey(),
-                    validator_list: self.solido.validator_list,
-                    validator_perf_list: self.solido.validator_perf_list,
-                },
-            );
-            return Some(MaintenanceInstruction::new(instruction, task));
         }
 
         None
