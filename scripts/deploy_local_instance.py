@@ -59,8 +59,14 @@ class Instance:
             '9',
             '--max-maintainers',
             '3',
-            '--max-commission-percentage',
+            '--max-commission',
             str(util.MAX_VALIDATION_COMMISSION_PERCENTAGE),
+            '--min-block-production-rate',
+            '0',
+            '--min-vote-success-rate',
+            '0',
+            '--min-uptime',
+            '0',
             '--treasury-fee-share',
             '5',
             '--developer-fee-share',
@@ -173,6 +179,17 @@ class Instance:
 
         output = {
             "cluster": util.get_network(),
+
+            "max_commission": "5",
+            "treasury_fee_share": "1",
+            "developer_fee_share": "1",
+            "max_validators": "256",
+            "max_maintainers": "16",
+            "st_sol_appreciation_share": "1",
+
+            "treasury_account_owner": util.solana('address').strip(),
+            "developer_account_owner": util.solana('address').strip(),
+
             "multisig_program_id": self.multisig_program_id,
             "multisig_address": self.multisig_instance,
             "solido_program_id": self.solido_program_id,
