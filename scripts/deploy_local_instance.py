@@ -110,11 +110,11 @@ class Instance:
         # validator that is actually voting, and earning rewards.
         current_validators = json.loads(util.solana('validators', '--output', 'json'))
 
-        # If we're running on localhost, change the comission
+        # If we're running on localhost, change the commission
         if util.get_network() == 'http://127.0.0.1:8899':
             solido_instance = self.pull_solido()
             print(
-                '> Changing validator\'s comission to {}% ...'.format(
+                '> Changing validator\'s commission to {}% ...'.format(
                     util.MAX_VALIDATION_COMMISSION_PERCENTAGE
                 )
             )
