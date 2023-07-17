@@ -67,6 +67,9 @@ struct MaintenanceMetrics {
     /// Number of times we performed `DeactivateIfViolates`.
     transactions_deactivate_if_violates: u64,
 
+    /// Number of times we performed `DeactivateIfViolates`.
+    transactions_reactivate_if_complies: u64,
+
     /// Number of times we performed `Unstake` on an active validator for balancing purposes.
     transactions_unstake_from_active_validator: u64,
 }
@@ -145,6 +148,9 @@ impl MaintenanceMetrics {
             }
             MaintenanceOutput::DeactivateIfViolates { .. } => {
                 self.transactions_deactivate_if_violates += 1;
+            }
+            MaintenanceOutput::ReactivateIfComplies { .. } => {
+                self.transactions_reactivate_if_complies += 1;
             }
             MaintenanceOutput::UnstakeFromActiveValidator { .. } => {
                 self.transactions_unstake_from_active_validator += 1;
@@ -311,6 +317,7 @@ impl<'a, 'b> Daemon<'a, 'b> {
             transactions_unstake_from_inactive_validator: 0,
             transactions_remove_validator: 0,
             transactions_deactivate_if_violates: 0,
+            transactions_reactivate_if_complies: 0,
             transactions_unstake_from_active_validator: 0,
         };
         Daemon {
