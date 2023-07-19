@@ -121,6 +121,10 @@ pub enum MaintenanceOutput {
         #[serde(serialize_with = "serialize_b58")]
         validator_vote_account: Pubkey,
     },
+    RemoveValidator {
+        #[serde(serialize_with = "serialize_b58")]
+        validator_vote_account: Pubkey,
+    },
     UnstakeFromActiveValidator(Unstake),
 }
 
@@ -271,6 +275,12 @@ impl fmt::Display for MaintenanceOutput {
                 validator_vote_account,
             } => {
                 writeln!(f, "Reactivate a validator that meets our criteria.")?;
+                writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
+            }
+            MaintenanceOutput::RemoveValidator {
+                validator_vote_account,
+            } => {
+                writeln!(f, "Remove a validator.")?;
                 writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
             }
         }
@@ -903,6 +913,31 @@ impl SolidoState {
             }
         }
 
+        None
+    }
+
+    /// If there is a validator ready for removal, try to remove it.
+    pub fn try_remove_pending_validators(&self) -> Option<MaintenanceInstruction> {
+        for (validator_index, validator) in self.validators.entries.iter().enumerate() {
+            // We are only interested in validators that can be removed.
+            if validator.check_can_be_removed().is_err() {
+                continue;
+            }
+            let task = MaintenanceOutput::RemoveValidator {
+                validator_vote_account: *validator.pubkey(),
+            };
+
+            let instruction = lido::instruction::remove_validator(
+                &self.solido_program_id,
+                &lido::instruction::RemoveValidatorMetaV2 {
+                    lido: self.solido_address,
+                    validator_vote_account_to_remove: *validator.pubkey(),
+                    validator_list: self.solido.validator_list,
+                },
+                u32::try_from(validator_index).expect("Too many validators"),
+            );
+            return Some(MaintenanceInstruction::new(instruction, task));
+        }
         None
     }
 
@@ -1749,7 +1784,8 @@ pub fn try_perform_maintenance(
         .or_else(|| state.try_update_stake_account_balance())
         .or_else(|| state.try_deactivate_if_violates())
         .or_else(|| state.try_stake_deposit())
-        .or_else(|| state.try_unstake_from_active_validators());
+        .or_else(|| state.try_unstake_from_active_validators())
+        .or_else(|| state.try_remove_pending_validators());
 
     match instruction_output {
         Some(maintenance_instruction) => {

@@ -808,7 +808,7 @@ impl Context {
                 &lido::instruction::EnqueueValidatorForRemovalMetaV2 {
                     lido: self.solido.pubkey(),
                     manager: self.manager.pubkey(),
-                    validator_vote_account_to_deactivate: vote_account,
+                    validator_vote_account_to_remove: vote_account,
                     validator_list: self.validator_list.pubkey(),
                 },
                 validator_index,

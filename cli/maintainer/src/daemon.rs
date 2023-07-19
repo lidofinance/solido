@@ -152,6 +152,9 @@ impl MaintenanceMetrics {
             MaintenanceOutput::ReactivateIfComplies { .. } => {
                 self.transactions_reactivate_if_complies += 1;
             }
+            MaintenanceOutput::RemoveValidator { .. } => {
+                self.transactions_remove_validator += 1;
+            }
             MaintenanceOutput::UnstakeFromActiveValidator { .. } => {
                 self.transactions_unstake_from_active_validator += 1;
             }

@@ -814,7 +814,7 @@ accounts_struct! {
             is_signer: true,
             is_writable: false,
         },
-        pub validator_vote_account_to_deactivate {
+        pub validator_vote_account_to_remove {
             is_signer: false,
             is_writable: false,
         },

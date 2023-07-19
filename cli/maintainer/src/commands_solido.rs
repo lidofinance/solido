@@ -35,6 +35,7 @@ use crate::{
     commands_multisig::{
         get_multisig_program_address, propose_instruction, ProposeInstructionOutput,
     },
+    config::RemoveValidatorOpts,
     spl_token_utils::{push_create_spl_token_account, push_create_spl_token_mint},
 };
 use crate::{
@@ -869,13 +870,13 @@ pub fn command_show_solido(
         .zip(validator_commission_percentages.into_iter())
         .map(
             |((((v, identity), info), perf), commission)| RichValidator {
+                active: v.is_active(),
                 vote_account_address: v.pubkey().to_owned(),
                 stake_seeds: v.stake_seeds,
                 unstake_seeds: v.unstake_seeds,
                 stake_accounts_balance: v.stake_accounts_balance,
                 unstake_accounts_balance: v.unstake_accounts_balance,
                 effective_stake_balance: v.effective_stake_balance,
-                active: v.active,
                 identity_account_address: identity,
                 info,
                 perf,
@@ -1225,7 +1226,7 @@ pub fn command_deactivate_if_violates(
             .ok()
             .ok_or_else(|| CliError::new("Validator account data too small"))?;
 
-        if !validator.active || commission <= solido.criteria.max_commission {
+        if !validator.is_active() || commission <= solido.criteria.max_commission {
             continue;
         }
 
@@ -1255,6 +1256,40 @@ pub fn command_deactivate_if_violates(
         entries: violations,
         max_commission_percentage: solido.criteria.max_commission,
     })
+}
+
+/// CLI entry point to mark a validator as subject to removal.
+pub fn command_remove_validator(
+    config: &mut SnapshotConfig,
+    opts: &RemoveValidatorOpts,
+) -> solido_cli_common::Result<ProposeInstructionOutput> {
+    let solido = config.client.get_solido(opts.solido_address())?;
+
+    let validators = config
+        .client
+        .get_account_list::<Validator>(&solido.validator_list)?;
+
+    let (multisig_address, _) =
+        get_multisig_program_address(opts.multisig_program_id(), opts.multisig_address());
+
+    let instruction = lido::instruction::enqueue_validator_for_removal(
+        opts.solido_program_id(),
+        &lido::instruction::EnqueueValidatorForRemovalMetaV2 {
+            lido: *opts.solido_address(),
+            manager: multisig_address,
+            validator_vote_account_to_remove: *opts.validator_vote_account(),
+            validator_list: solido.validator_list,
+        },
+        validators
+            .position(opts.validator_vote_account())
+            .ok_or_else(|| CliError::new("Pubkey not found in validator list"))?,
+    );
+    propose_instruction(
+        config,
+        opts.multisig_program_id(),
+        *opts.multisig_address(),
+        instruction,
+    )
 }
 
 /// CLI entry point to change the thresholds of curating out the validators
