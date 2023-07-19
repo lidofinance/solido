@@ -781,7 +781,7 @@ impl SolidoState {
         {
             // We are only interested in unstaking from inactive validators that
             // have stake accounts.
-            if validator.active {
+            if validator.is_active() {
                 continue;
             }
             // Validator already has 3 unstake accounts.
@@ -824,7 +824,7 @@ impl SolidoState {
             .zip(self.validator_vote_accounts.iter())
             .enumerate()
         {
-            if !validator.active {
+            if !validator.is_active() {
                 continue;
             }
 
@@ -878,7 +878,7 @@ impl SolidoState {
             // and are now performing well.
             //
             // If the vote account is closed, no need to reactivate.
-            if !validator.active
+            if !validator.is_active()
                 && vote_state.as_ref().map_or(false, |vote_state| {
                     does_perform_well(
                         &self.solido.criteria,
