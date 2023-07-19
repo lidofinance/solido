@@ -446,7 +446,7 @@ pub fn command_remove_maintainer(
     )
 }
 
-/// `Validator` structure with all the fields from its related struct
+/// `Validator` structure with all the fields from its related structs
 /// joined by its `Pubkey`.
 #[derive(Serialize)]
 pub struct RichValidator {
