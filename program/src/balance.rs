@@ -191,9 +191,7 @@ pub fn get_minimum_stake_validator_index_amount(
     );
 
     for (i, (validator, target)) in validators.entries.iter().zip(target_balance).enumerate() {
-        if validator.is_active()
-            && validator.compute_effective_stake_balance() < lowest_balance
-        {
+        if validator.is_active() && validator.compute_effective_stake_balance() < lowest_balance {
             index = i;
             amount = Lamports(
                 target
