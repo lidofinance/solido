@@ -68,13 +68,13 @@ print(f'> Maintainer list account owner: {maintainer_list_account_owner}')
 
 print('\nUploading Solido program ...')
 solido_program_id = solana_program_deploy(get_solido_program_path() + '/lido.so')
-print(f'> Solido program id is {solido_program_id}.')
+print(f'> Solido program id is {solido_program_id}')
 
 print('\nUploading Multisig program ...')
 multisig_program_id = solana_program_deploy(
     get_solido_program_path() + '/serum_multisig.so'
 )
-print(f'> Multisig program id is {multisig_program_id}.')
+print(f'> Multisig program id is {multisig_program_id}')
 
 print('\nCreating new multisig ...')
 multisig_data = multisig(
@@ -88,7 +88,7 @@ multisig_data = multisig(
 )
 multisig_instance = multisig_data['multisig_address']
 multisig_pda = multisig_data['multisig_program_derived_address']
-print(f'> Created instance at {multisig_instance}.')
+print(f'> Created instance at {multisig_instance}')
 
 
 def approve_and_execute(transaction_to_approve: str, signer: TestAccount) -> None:
@@ -216,7 +216,7 @@ st_sol_mint_account = result['st_sol_mint_address']
 validator_list_address = result['validator_list_address']
 maintainer_list_address = result['maintainer_list_address']
 
-print(f'> Created instance at {solido_address}.')
+print(f'> Created instance at {solido_address}')
 
 output = {
     "multisig_program_id": multisig_program_id,
@@ -288,7 +288,6 @@ def add_validator(
         keypair_path=test_addrs[1].keypair_path,
     )
     return (validator, transaction_result)
-
 
 print('> Call function to add validator')
 (validator, transaction_result) = add_validator(
@@ -466,14 +465,14 @@ print('\nRunning maintenance (should be no-op if epoch is unchanged) ...')
 result = perform_maintenance()
 if solido_instance['solido']['exchange_rate']['computed_in_epoch'] == current_epoch:
     assert result is None, f'Huh, perform-maintenance performed {result}'
-    print('> There was nothing to do, as expected.')
+    print('> There was nothing to do, as expected')
 else:
     update_exchange_rate_result = 'UpdateExchangeRate'
     # Epoch is likely to be > 0 for the test-net runs
     assert (
         result == update_exchange_rate_result
     ), f'\nExpected: {update_exchange_rate_result}\nActual:   {result}'
-    print('> Updated the exchange rate, as expected in a change of Epoch.')
+    print('> Updated the exchange rate, as expected in a change of Epoch')
 
 
 def deposit(lamports: int, expect_created_token_account: bool = False) -> None:
@@ -496,7 +495,7 @@ def deposit(lamports: int, expect_created_token_account: bool = False) -> None:
     }
     assert deposit_result == expected, f'{deposit_result} == {expected}'
     print(
-        f'> Got {deposit_result["st_lamports_balance_increase"]/1_000_000_000} stSOL.'
+        f'> Got {deposit_result["st_lamports_balance_increase"]/1_000_000_000} stSOL'
     )
 
 
@@ -515,7 +514,7 @@ del result['StakeDeposit'][
     'stake_account'
 ]  # This one we can't easily predict, don't compare it.
 assert result == expected_result, f'\nExpected: {expected_result}\nActual:   {result}'
-print(f'> Staked deposit with {validator.vote_account}.')
+print(f'> Staked deposit with {validator.vote_account}')
 
 print(
     '\nSimulating 0.0005 SOL deposit (too little to stake), then running maintenance ...'
@@ -526,7 +525,7 @@ deposit(lamports=500_000)
 # is not empty, we can't stake what's in the reserve.
 result = perform_maintenance()
 assert result is None, f'Huh, perform-maintenance performed {result}'
-print('> There was nothing to do, as expected.')
+print('> There was nothing to do, as expected')
 
 
 def add_validator_and_approve(keypath_account: str, keypath_vote: str) -> Validator:
@@ -546,6 +545,27 @@ def add_validator_and_approve(keypath_account: str, keypath_vote: str) -> Valida
     )
     assert transaction_status['did_execute'] == True
     return validator
+
+def remove_validator_and_approve(vote_account_address: str, keypair_path: str) -> str:
+    transaction_result = solido(
+        'remove-validator',
+        '--validator-vote-account',
+        vote_account_address,
+        keypair_path=keypair_path,
+    )
+    transaction_address = transaction_result['transaction_address']
+    approve_and_execute(transaction_address, test_addrs[0])
+    transaction_status = multisig(
+        'show-transaction',
+        '--multisig-program-id',
+        multisig_program_id,
+        '--solido-program-id',
+        solido_program_id,
+        '--transaction-address',
+        transaction_address,
+    )
+    assert transaction_status['did_execute']
+    return transaction_address
 
 
 validator_1 = add_validator_and_approve(
@@ -593,7 +613,7 @@ expected_result = {
 
 assert result == expected_result, f'\nExpected: {expected_result}\nActual:   {result}'
 
-print('> Performed UpdateStakeAccountBalance as expected.')
+print('> Performed UpdateStakeAccountBalance as expected')
 
 
 print('\nDonating 1.0 SOL to reserve, then running maintenance ...')
@@ -617,13 +637,13 @@ expected_result = {
     }
 }
 assert result == expected_result, f'\nExpected: {expected_result}\nActual:   {result}'
-print('> Deposited to the second validator, as expected.')
+print('> Deposited to the second validator, as expected')
 
 print('\nRunning maintenance (should be no-op) ...')
 result = perform_maintenance()
 
 assert result is None, f'Huh, perform-maintenance performed {result}'
-print('> There was nothing to do, as expected.')
+print('> There was nothing to do, as expected')
 
 print(f'\nDeactivating validator {validator.vote_account.pubkey} ...')
 transaction_result = solido(
@@ -641,7 +661,7 @@ transaction_result = solido(
     keypair_path=test_addrs[0].keypair_path,
 )
 transaction_address = transaction_result['transaction_address']
-print(f'> Deactivation multisig transaction address is {transaction_address}.')
+print(f'> Deactivation multisig transaction address is {transaction_address}')
 transaction_status = multisig(
     'show-transaction',
     '--multisig-program-id',
@@ -667,7 +687,7 @@ solido_instance = solido(
 assert not solido_instance['validators'][0][
     'active'
 ], 'Validator should be inactive after deactivation.'
-print('> Validator is inactive as expected.')
+print('> Validator is inactive as expected')
 
 print('\nRunning maintenance (should unstake from inactive validator) ...')
 result = perform_maintenance()
@@ -720,22 +740,7 @@ expected_result = {
 
 print('\nRunning maintenance (should not remove the validator) ...')
 result = perform_maintenance()
-expected_result = {
-    'RemoveValidator': {'validator_vote_account': validator.vote_account.pubkey}
-}
 assert result is None
-
-solido_instance = solido(
-    'show-solido',
-    '--solido-program-id',
-    solido_program_id,
-    '--solido-address',
-    solido_address,
-)
-number_validators = len(solido_instance['validators'])
-assert (
-    number_validators == 1
-), f'\nExpected no validators\nGot: {number_validators} validators'
 
 # change validator commission above limit
 solana(
@@ -746,7 +751,7 @@ solana(
 )
 
 print(
-    '\nRunning maintenance (should deactivate a validator that exceed max validation commission) ...'
+    '\nRunning maintenance (should record the exceeded commission) ...'
 )
 result = perform_maintenance()
 # check validator_1 is deactivated
@@ -757,79 +762,10 @@ expected_result = {
 }
 assert result == expected_result, f'\nExpected: {expected_result}\nActual:   {result}'
 
-
-print('\nConsuming all maintainence instructions')
-consume_maintainence_instructions(False)
-
 # Adding another validator
 validator_2 = add_validator_and_approve(
     'validator-account-key-2', 'validator-vote-account-key-2'
 )
-
-
-def set_max_validation_commission(fee: int) -> Any:
-    transaction_result = solido(
-        'set-max-validation-commission',
-        '--multisig-program-id',
-        multisig_program_id,
-        '--solido-program-id',
-        solido_program_id,
-        '--solido-address',
-        solido_address,
-        '--max-commission-percentage',
-        str(fee),
-        '--multisig-address',
-        multisig_instance,
-        keypair_path=test_addrs[1].keypair_path,
-    )
-    assert transaction_result['transaction_address'] != None
-
-    approve_and_execute(transaction_result['transaction_address'], test_addrs[0])
-    transaction_status = multisig(
-        'show-transaction',
-        '--multisig-program-id',
-        multisig_program_id,
-        '--solido-program-id',
-        solido_program_id,
-        '--transaction-address',
-        transaction_result['transaction_address'],
-    )
-    return transaction_status
-
-
-print(
-    '\nLowering max validation commission to %d%% ...'
-    % (MAX_VALIDATION_COMMISSION_PERCENTAGE - 1)
-)
-transaction_status = set_max_validation_commission(
-    MAX_VALIDATION_COMMISSION_PERCENTAGE - 1
-)
-assert transaction_status['did_execute'] == True
-
-
-print(
-    '\nRunning maintenance (should deactivate all validators, because they exceed max validation commission) ...'
-)
-
-maintainance_result = perform_maintenance()
-expected_result = {
-    'DeactivateIfViolates': {
-        'validator_vote_account': validator_2.vote_account.pubkey
-    }
-}
-# check validator_2 is deactivated
-assert (
-    maintainance_result == expected_result
-), f'\nExpected: {expected_result}\nActual:   {maintainance_result}'
-
-#############################################################################
-
-print(
-    '\nRestore max validation commission to %d%% ...'
-    % (MAX_VALIDATION_COMMISSION_PERCENTAGE)
-)
-transaction_status = set_max_validation_commission(MAX_VALIDATION_COMMISSION_PERCENTAGE)
-assert transaction_status['did_execute'] == True
 
 validator_3 = add_validator_and_approve(
     'validator-account-key-3', 'validator-vote-account-key-3'
@@ -843,17 +779,11 @@ solido_instance = solido(
 )
 number_validators = len(solido_instance['validators'])
 assert (
-    number_validators == 2
+    number_validators == 4
 ), f'\nExpected 2 validators\nGot: {number_validators} validators'
 
-print(f'\nClosing vote account {validator_3.vote_account.pubkey}')
-solana(
-    "close-vote-account",
-    validator_3.vote_account.pubkey,
-    "tests/.keys/test-key-1.json",
-    "--authorized-withdrawer",
-    validator_3.withdrawer_account.keypair_path,
-)
+print(f'\nRemoving validator {validator_1.vote_account.pubkey} ...')
+remove_validator_and_approve(validator_1.vote_account.pubkey, test_addrs[0].keypair_path)
 
 print('\nConsuming all maintainence instructions (should remove all validators) ...')
 consume_maintainence_instructions(False)
