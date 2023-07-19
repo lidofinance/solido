@@ -549,6 +549,14 @@ def add_validator_and_approve(keypath_account: str, keypath_vote: str) -> Valida
 def remove_validator_and_approve(vote_account_address: str, keypair_path: str) -> str:
     transaction_result = solido(
         'remove-validator',
+        '--solido-program-id',
+        solido_program_id,
+        '--solido-address',
+        solido_address,
+        '--multisig-address',
+        multisig_instance,
+        '--multisig-program-id',
+        multisig_program_id,
         '--validator-vote-account',
         vote_account_address,
         keypair_path=keypair_path,
