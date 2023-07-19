@@ -461,19 +461,9 @@ def consume_maintainence_instructions(verbose: bool = False) -> Any:
             return last_result
 
 
-print('\nRunning maintenance (should be no-op if epoch is unchanged) ...')
+print('\nRunning maintenance (should be no-op) ...')
 result = perform_maintenance()
-if solido_instance['solido']['exchange_rate']['computed_in_epoch'] == current_epoch:
-    assert result is None, f'Huh, perform-maintenance performed {result}'
-    print('> There was nothing to do, as expected')
-else:
-    update_exchange_rate_result = 'UpdateExchangeRate'
-    # Epoch is likely to be > 0 for the test-net runs
-    assert (
-        result == update_exchange_rate_result
-    ), f'\nExpected: {update_exchange_rate_result}\nActual:   {result}'
-    print('> Updated the exchange rate, as expected in a change of Epoch')
-
+assert result is None, f'Huh, perform-maintenance performed {result}'
 
 def deposit(lamports: int, expect_created_token_account: bool = False) -> None:
     print(f'\nDepositing {lamports/1_000_000_000} SOL ...')
@@ -562,7 +552,36 @@ def remove_validator_and_approve(vote_account_address: str, keypair_path: str) -
         keypair_path=keypair_path,
     )
     transaction_address = transaction_result['transaction_address']
-    approve_and_execute(transaction_address, test_addrs[0])
+    multisig(
+        'approve',
+        '--multisig-program-id',
+        multisig_program_id,
+        '--multisig-address',
+        multisig_instance,
+        '--transaction-address',
+        transaction_address,
+        keypair_path=test_addrs[0].keypair_path,
+    )
+    multisig(
+        'approve',
+        '--multisig-program-id',
+        multisig_program_id,
+        '--multisig-address',
+        multisig_instance,
+        '--transaction-address',
+        transaction_address,
+        keypair_path=test_addrs[1].keypair_path,
+    )
+    multisig(
+        'execute-transaction',
+        '--multisig-program-id',
+        multisig_program_id,
+        '--multisig-address',
+        multisig_instance,
+        '--transaction-address',
+        transaction_address,
+        keypair_path=keypair_path,
+    )
     transaction_status = multisig(
         'show-transaction',
         '--multisig-program-id',
@@ -791,7 +810,16 @@ assert (
 ), f'\nExpected 2 validators\nGot: {number_validators} validators'
 
 print(f'\nRemoving validator {validator_1.vote_account.pubkey} ...')
-remove_validator_and_approve(validator_1.vote_account.pubkey, maintainer.keypair_path)
+remove_validator_and_approve(validator_1.vote_account.pubkey, test_addrs[0].keypair_path)
+
+print(f'\nRemoving validator {validator_2.vote_account.pubkey} ...')
+remove_validator_and_approve(validator_2.vote_account.pubkey, test_addrs[0].keypair_path)
+
+print(f'\nRemoving validator {validator_3.vote_account.pubkey} ...')
+remove_validator_and_approve(validator_3.vote_account.pubkey, test_addrs[0].keypair_path)
+
+print(f'\nRemoving validator {validator.vote_account.pubkey} ...')
+remove_validator_and_approve(validator.vote_account.pubkey, test_addrs[0].keypair_path)
 
 print('\nConsuming all maintainence instructions (should remove all validators) ...')
 consume_maintainence_instructions(False)
