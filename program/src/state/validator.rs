@@ -1,42 +1,21 @@
 //! Types describing the state of the validator with respect to the pool.
 
-use std::convert::TryFrom;
 use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::ops::Range;
 
 use serde::Serialize;
 
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 use solana_program::{
-    account_info::AccountInfo,
-    borsh::{get_instance_packed_len, try_from_slice_unchecked},
-    clock::Clock,
-    clock::Epoch,
-    entrypoint::ProgramResult,
-    msg,
-    program_error::ProgramError,
-    program_memory::sol_memcmp,
-    program_pack::Pack,
-    program_pack::Sealed,
-    pubkey::{Pubkey, PUBKEY_BYTES},
-    rent::Rent,
-    sysvar::Sysvar,
+    clock::Epoch, entrypoint::ProgramResult, msg, program_error::ProgramError, program_pack::Pack,
+    program_pack::Sealed, pubkey::Pubkey,
 };
-use spl_token::state::Mint;
 
-use crate::big_vec::BigVec;
 use crate::error::LidoError;
-use crate::logic::{check_account_owner, get_reserve_available_balance};
-use crate::metrics::Metrics;
 use crate::processor::StakeType;
 use crate::state::{AccountType, ListEntry, SeedRange};
-use crate::token::{self, Lamports, Rational, StLamports};
+use crate::token::Lamports;
 use crate::util::serialize_b58;
-use crate::{
-    MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT, STAKE_AUTHORITY,
-    VALIDATOR_STAKE_ACCOUNT, VALIDATOR_UNSTAKE_ACCOUNT,
-};
+use crate::{VALIDATOR_STAKE_ACCOUNT, VALIDATOR_UNSTAKE_ACCOUNT};
 
 /// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
 /// THERE'S AN EXTREMELY GOOD REASON.

@@ -21,7 +21,6 @@ use solana_program::{
     program_error::ProgramError,
     program_memory::sol_memcmp,
     program_pack::Pack,
-    program_pack::Sealed,
     pubkey::{Pubkey, PUBKEY_BYTES},
     rent::Rent,
     sysvar::Sysvar,
@@ -32,13 +31,9 @@ use crate::big_vec::BigVec;
 use crate::error::LidoError;
 use crate::logic::{check_account_owner, get_reserve_available_balance};
 use crate::metrics::Metrics;
-use crate::processor::StakeType;
 use crate::token::{self, Lamports, Rational, StLamports};
 use crate::util::serialize_b58;
-use crate::{
-    MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT, STAKE_AUTHORITY,
-    VALIDATOR_STAKE_ACCOUNT, VALIDATOR_UNSTAKE_ACCOUNT,
-};
+use crate::{MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT, STAKE_AUTHORITY};
 
 mod validator;
 pub use validator::Validator;
