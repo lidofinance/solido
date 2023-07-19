@@ -791,7 +791,7 @@ assert (
 ), f'\nExpected 2 validators\nGot: {number_validators} validators'
 
 print(f'\nRemoving validator {validator_1.vote_account.pubkey} ...')
-remove_validator_and_approve(validator_1.vote_account.pubkey, test_addrs[0].keypair_path)
+remove_validator_and_approve(validator_1.vote_account.pubkey, maintainer.keypair_path)
 
 print('\nConsuming all maintainence instructions (should remove all validators) ...')
 consume_maintainence_instructions(False)
