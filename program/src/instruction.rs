@@ -179,6 +179,12 @@ pub enum LidoInstruction {
         validator_index: u32,
     },
 
+    EnqueueValidatorForRemovalV2 {
+        // Index of a validator in validator list
+        #[allow(dead_code)] // but it's not
+        validator_index: u32,
+    },
+
     RemoveValidatorV2 {
         // Index of a validator in validator list
         #[allow(dead_code)] // but it's not
@@ -795,6 +801,39 @@ pub fn deactivate_validator(
         program_id: *program_id,
         accounts: accounts.to_vec(),
         data: LidoInstruction::DeactivateValidatorV2 { validator_index }.to_vec(),
+    }
+}
+
+accounts_struct! {
+    EnqueueValidatorForRemovalMetaV2, EnqueueValidatorForRemovalInfoV2 {
+        pub lido {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub manager {
+            is_signer: true,
+            is_writable: false,
+        },
+        pub validator_vote_account_to_deactivate {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: true,
+        },
+    }
+}
+
+pub fn enqueue_validator_for_removal(
+    program_id: &Pubkey,
+    accounts: &EnqueueValidatorForRemovalMetaV2,
+    validator_index: u32,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::EnqueueValidatorForRemovalV2 { validator_index }.to_vec(),
     }
 }
 

@@ -102,6 +102,37 @@ pub fn process_remove_validator(
     Ok(())
 }
 
+/// Enqueue a validator for removal.
+///
+/// This deactivates the validator as well, so that no new funds can be staked
+/// with it. Once the validator has no more stake delegated to it, it can be
+/// removed from the list by calling `RemoveValidator`.
+pub fn process_enqueue_validator_for_removal(
+    program_id: &Pubkey,
+    validator_index: u32,
+    accounts_raw: &[AccountInfo],
+) -> ProgramResult {
+    let accounts = DeactivateValidatorInfoV2::try_from_slice(accounts_raw)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+    lido.check_manager(accounts.manager)?;
+
+    let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
+    let mut validators = lido.deserialize_account_list_info::<Validator>(
+        program_id,
+        accounts.validator_list,
+        validator_list_data,
+    )?;
+
+    let validator = validators.get_mut(
+        validator_index,
+        accounts.validator_vote_account_to_deactivate.key,
+    )?;
+
+    validator.enqueue_for_removal();
+    msg!("Validator {} enqueued for removal.", validator.pubkey());
+    Ok(())
+}
+
 /// Set the `active` flag to false for a given validator.
 ///
 /// This prevents new funds from being staked with this validator, and enables
@@ -174,7 +205,7 @@ pub fn process_deactivate_if_violates(
     };
 
     // Nothing to do if the validator is already inactive.
-    if !validator.active {
+    if !validator.is_active() {
         return Ok(());
     }
 
@@ -246,7 +277,7 @@ pub fn process_reactivate_if_complies(
     };
 
     // Nothing to do if the validator is already active.
-    if validator.active {
+    if validator.is_active() {
         return Ok(());
     }
 

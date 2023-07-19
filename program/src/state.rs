@@ -36,7 +36,7 @@ use crate::util::serialize_b58;
 use crate::{MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT, STAKE_AUTHORITY};
 
 mod validator;
-pub use validator::Validator;
+pub use validator::{Validator, ValidatorStatus};
 
 mod validator_perf;
 pub use validator_perf::{Criteria, OffchainValidatorPerf, ValidatorPerf};
@@ -320,7 +320,7 @@ impl<T: ListEntry> ListHeader<T> {
 
 impl ValidatorList {
     pub fn iter_active(&self) -> impl Iterator<Item = &Validator> {
-        self.entries.iter().filter(|&v| v.active)
+        self.entries.iter().filter(|&v| v.is_active())
     }
 }
 
@@ -1653,7 +1653,7 @@ mod test_lido {
         elem.vote_account_address = Pubkey::new_unique();
         elem.effective_stake_balance = Lamports(34453);
         elem.stake_accounts_balance = Lamports(234525);
-        elem.active = true;
+        elem.status = ValidatorStatus::AcceptingStakes;
 
         // allocate space for future elements
         let mut buffer: Vec<u8> =
@@ -1678,7 +1678,7 @@ mod test_lido {
             stake_accounts_balance: Lamports(1111),
             unstake_accounts_balance: Lamports(3333),
             effective_stake_balance: Lamports(3465468),
-            active: false,
+            status: ValidatorStatus::StakesSuspended,
         };
 
         accounts.entries.push(elem.clone());

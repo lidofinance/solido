@@ -437,16 +437,6 @@ enum SolidoInstruction {
 
         validator_index: u32,
     },
-    RemoveValidator {
-        #[serde(serialize_with = "serialize_b58")]
-        solido_instance: Pubkey,
-
-        #[serde(serialize_with = "serialize_b58")]
-        manager: Pubkey,
-
-        #[serde(serialize_with = "serialize_b58")]
-        validator_vote_account: Pubkey,
-    },
     AddMaintainer {
         #[serde(serialize_with = "serialize_b58")]
         solido_instance: Pubkey,

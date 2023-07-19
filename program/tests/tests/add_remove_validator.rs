@@ -70,7 +70,9 @@ async fn test_add_validator_with_invalid_owner() {
 async fn test_successful_remove_validator() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     let validator = &context.get_solido().await.validators.entries[0];
-    context.deactivate_validator(*validator.pubkey()).await;
+    context
+        .enqueue_validator_for_removal(*validator.pubkey())
+        .await;
     context
         .try_remove_validator(*validator.pubkey())
         .await
@@ -100,14 +102,14 @@ async fn test_deactivate_validator() {
     // Initially, the validator should be active.
     let solido = context.get_solido().await;
     assert_eq!(solido.validators.len(), 1);
-    assert!(solido.validators.entries[0].active);
+    assert!(solido.validators.entries[0].is_active());
 
     context.deactivate_validator(validator.vote_account).await;
 
     // After deactivation, it should be inactive.
     let solido = context.get_solido().await;
     assert_eq!(solido.validators.len(), 1);
-    assert!(!solido.validators.entries[0].active);
+    assert!(!solido.validators.entries[0].is_active());
 
     // Deactivation is idempotent.
     context.deactivate_validator(validator.vote_account).await;

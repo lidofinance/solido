@@ -23,8 +23,8 @@ use crate::{
     process_management::{
         process_add_maintainer, process_add_validator, process_change_criteria,
         process_change_reward_distribution, process_deactivate_if_violates,
-        process_deactivate_validator, process_merge_stake, process_reactivate_if_complies,
-        process_remove_maintainer, process_remove_validator,
+        process_deactivate_validator, process_enqueue_validator_for_removal, process_merge_stake,
+        process_reactivate_if_complies, process_remove_maintainer, process_remove_validator,
     },
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
@@ -261,7 +261,7 @@ pub fn process_stake_deposit(
     // the same StakeDeposit transaction, only one of them succeeds.
     let minimum_stake_validator = validators
         .iter()
-        .filter(|&v| v.active)
+        .filter(|&v| v.is_active())
         .min_by_key(|v| v.effective_stake_balance)
         .ok_or(LidoError::NoActiveValidators)?;
     let minimum_stake_pubkey = *minimum_stake_validator.pubkey();
@@ -269,7 +269,7 @@ pub fn process_stake_deposit(
 
     let validator = validators.get_mut(validator_index, accounts.validator_vote_account.key)?;
 
-    if !validator.active {
+    if !validator.is_active() {
         msg!(
             "Validator {} is inactive, new deposits are not allowed",
             validator.pubkey()
@@ -557,7 +557,7 @@ pub fn process_unstake(
         ]],
     )?;
 
-    if validator.active {
+    if validator.is_active() {
         // For active validators, we don't allow their stake accounts to contain
         // less than the minimum stake account balance.
         let new_source_balance = (source_balance - amount)?;
@@ -1348,6 +1348,9 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
             new_reward_distribution,
         } => process_change_reward_distribution(program_id, new_reward_distribution, accounts),
         LidoInstruction::AddValidatorV2 => process_add_validator(program_id, accounts),
+        LidoInstruction::EnqueueValidatorForRemovalV2 { validator_index } => {
+            process_enqueue_validator_for_removal(program_id, validator_index, accounts)
+        }
         LidoInstruction::RemoveValidatorV2 { validator_index } => {
             process_remove_validator(program_id, validator_index, accounts)
         }

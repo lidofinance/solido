@@ -15,7 +15,7 @@ async fn test_curate_by_max_commission_percentage() {
 
     // increase max_commission_percentage
     let result = context.try_set_max_commission_percentage(context.criteria.max_commission + 1);
-    assert_eq!(result.await.is_ok(), true);
+    assert!(result.await.is_ok());
 
     let solido = context.get_solido().await.lido;
     assert_eq!(
@@ -24,11 +24,11 @@ async fn test_curate_by_max_commission_percentage() {
     );
 
     let result = context.try_deactivate_if_violates(*validator.pubkey());
-    assert_eq!(result.await.is_ok(), true);
+    assert!(result.await.is_ok());
 
     // check validator is not deactivated
     let validator = &context.get_solido().await.validators.entries[0];
-    assert_eq!(validator.active, true);
+    assert!(validator.is_active());
 
     // Increase max_commission_percentage above 100%
     assert_solido_error!(
@@ -38,14 +38,14 @@ async fn test_curate_by_max_commission_percentage() {
 
     // decrease max_commission_percentage
     let result = context.try_set_max_commission_percentage(context.criteria.max_commission - 1);
-    assert_eq!(result.await.is_ok(), true);
+    assert!(result.await.is_ok());
 
     let result = context.try_deactivate_if_violates(*validator.pubkey());
-    assert_eq!(result.await.is_ok(), true);
+    assert!(result.await.is_ok());
 
     // check validator is deactivated
     let validator = &context.get_solido().await.validators.entries[0];
-    assert_eq!(validator.active, false);
+    assert!(!validator.is_active());
 }
 
 #[tokio::test]
@@ -54,7 +54,7 @@ async fn test_curate_by_min_block_production_rate() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(validator.active);
+    assert!(validator.is_active());
 
     // When Solido imposes a minimum block production rate:
     let result = context
@@ -79,7 +79,7 @@ async fn test_curate_by_min_block_production_rate() {
 
     // Then the validators with a lower block production rate are deactivated:
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(!validator.active);
+    assert!(!validator.is_active());
 }
 
 #[tokio::test]
@@ -88,7 +88,7 @@ async fn test_curate_by_min_vote_success_rate() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(validator.active);
+    assert!(validator.is_active());
 
     // When Solido imposes a minimum vote success rate:
     let result = context
@@ -113,7 +113,7 @@ async fn test_curate_by_min_vote_success_rate() {
 
     // Then the validators with a lower vote success rate are deactivated:
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(!validator.active);
+    assert!(!validator.is_active());
 }
 
 #[tokio::test]
@@ -122,7 +122,7 @@ async fn test_curate_by_min_uptime() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(validator.active);
+    assert!(validator.is_active());
 
     // When Solido imposes a minimum uptime:
     let result = context
@@ -147,7 +147,7 @@ async fn test_curate_by_min_uptime() {
 
     // Then the validators with a lower vote success rate are deactivated:
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(!validator.active);
+    assert!(!validator.is_active());
 }
 
 #[tokio::test]
@@ -156,7 +156,7 @@ async fn test_update_block_production_rate() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(validator.active);
+    assert!(validator.is_active());
 
     // When an epoch passes, and the validator's block production rate is observed:
     let result = context
@@ -184,7 +184,7 @@ async fn test_update_vote_success_rate() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(validator.active);
+    assert!(validator.is_active());
 
     // When an epoch passes, and the validator's vote success rate is observed:
     let result = context
@@ -212,7 +212,7 @@ async fn test_update_uptime() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(validator.active);
+    assert!(validator.is_active());
 
     // When an epoch passes, and the validator's uptime is observed:
     let result = context
@@ -237,7 +237,7 @@ async fn test_uptime_updates_at_most_once_per_epoch() {
     let mut context = Context::new_with_maintainer_and_validator().await;
     context.advance_to_normal_epoch(0);
     let validator = &context.get_solido().await.validators.entries[0];
-    assert!(validator.active);
+    assert!(validator.is_active());
 
     // When the uptime of a validator gets updated:
     let result = context
@@ -276,18 +276,18 @@ async fn test_bring_back() {
             ..context.criteria
         })
         .await;
-    assert_eq!(result.is_ok(), true);
+    assert!(result.is_ok());
 
     let result = context
         .try_update_offchain_validator_perf(*validator.pubkey(), 0, 0, 98)
         .await;
-    assert_eq!(result.is_ok(), true);
+    assert!(result.is_ok());
 
     let result = context.try_deactivate_if_violates(*validator.pubkey());
-    assert_eq!(result.await.is_ok(), true);
+    assert!(result.await.is_ok());
 
     let validator = &context.get_solido().await.validators.entries[0];
-    assert_eq!(validator.active, false);
+    assert!(!validator.is_active());
 
     // When the epoch passes:
     context.advance_to_normal_epoch(1);
@@ -296,15 +296,15 @@ async fn test_bring_back() {
     let result = context
         .try_update_offchain_validator_perf(*validator.pubkey(), 0, 0, 101)
         .await;
-    assert_eq!(result.is_ok(), true);
+    assert!(result.is_ok());
 
     // And when the instruction is issued:
     let result = context.try_reactivate_if_complies(*validator.pubkey());
-    assert_eq!(result.await.is_ok(), true);
+    assert!(result.await.is_ok());
 
     // Then the validator is reactivated:
     let validator = &context.get_solido().await.validators.entries[0];
-    assert_eq!(validator.active, true);
+    assert!(validator.is_active());
 }
 
 #[tokio::test]
@@ -313,7 +313,7 @@ async fn test_close_vote_account() {
     let vote_account = context.validator.as_ref().unwrap().vote_account;
 
     let validator = &context.get_solido().await.validators.entries[0];
-    assert_eq!(validator.active, true);
+    assert!(validator.is_active());
 
     let keypair_bytes = context
         .validator
@@ -325,11 +325,11 @@ async fn test_close_vote_account() {
     let withdraw_authority = Keypair::from_bytes(&keypair_bytes).unwrap();
 
     let result = context.try_close_vote_account(&vote_account, &withdraw_authority);
-    assert_eq!(result.await.is_ok(), true);
+    assert!(result.await.is_ok());
 
     let result = context.try_deactivate_if_violates(*validator.pubkey());
-    assert_eq!(result.await.is_ok(), true);
+    assert!(result.await.is_ok());
 
     let validator = &context.get_solido().await.validators.entries[0];
-    assert_eq!(validator.active, false);
+    assert!(!validator.is_active());
 }

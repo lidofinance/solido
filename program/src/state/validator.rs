@@ -17,6 +17,30 @@ use crate::token::Lamports;
 use crate::util::serialize_b58;
 use crate::{VALIDATOR_STAKE_ACCOUNT, VALIDATOR_UNSTAKE_ACCOUNT};
 
+/// How well the pool accepts a certain validator.
+#[repr(i8)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, BorshDeserialize, BorshSerialize, BorshSchema, Serialize,
+)]
+pub enum ValidatorStatus {
+    /// The validator is fully accepted by the pool, and can receive new stake.
+    AcceptingStakes,
+
+    /// New stakes are not accepted for this validator. Existing stakes should be unstaked.
+    StakesSuspended,
+
+    /// The validator is queued for removal. Existing stakes should be unstaked,
+    /// and once unstaking is complete, the validator should be removed.
+    /// This status is irreversible.
+    PendingRemoval = -1,
+}
+
+impl Default for ValidatorStatus {
+    fn default() -> Self {
+        Self::AcceptingStakes
+    }
+}
+
 /// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
 /// THERE'S AN EXTREMELY GOOD REASON.
 ///
@@ -49,7 +73,7 @@ pub struct Validator {
 
     /// Controls if a validator is allowed to have new stake deposits.
     /// When removing a validator, this flag should be set to `false`.
-    pub active: bool,
+    pub status: ValidatorStatus,
 }
 
 impl Validator {
@@ -81,7 +105,7 @@ impl Validator {
     }
 
     pub fn check_can_be_removed(&self) -> Result<(), LidoError> {
-        if self.active {
+        if self.status != ValidatorStatus::PendingRemoval {
             return Err(LidoError::ValidatorIsStillActive);
         }
         if self.has_stake_accounts() {
@@ -167,15 +191,35 @@ impl Validator {
         self.find_stake_account_address_with_authority(program_id, solido_account, &authority, seed)
     }
 
+    /// True only if the validator is accepting new stake.
+    pub fn is_active(&self) -> bool {
+        self.status == ValidatorStatus::AcceptingStakes
+    }
+
     /// Mark the validator as active so that they could receive new stake.
     pub fn activate(&mut self) {
-        self.active = true;
+        if self.status != ValidatorStatus::StakesSuspended {
+            msg!("Validator is {:?}, so not activating ...", self.status);
+            return;
+        }
+
+        self.status = ValidatorStatus::AcceptingStakes;
     }
 
     /// Mark the validator as inactive so that no new stake can be delegated to it,
     /// and the existing stake shall be unstaked by the maintainer.
     pub fn deactivate(&mut self) {
-        self.active = false;
+        if self.status != ValidatorStatus::AcceptingStakes {
+            msg!("Validator is {:?}, so not deactivating ...", self.status);
+            return;
+        }
+
+        self.status = ValidatorStatus::StakesSuspended;
+    }
+
+    /// Mark the validator as queued for removal.
+    pub fn enqueue_for_removal(&mut self) {
+        self.status = ValidatorStatus::PendingRemoval;
     }
 }
 
@@ -201,8 +245,8 @@ impl Default for Validator {
             stake_accounts_balance: Lamports(0),
             unstake_accounts_balance: Lamports(0),
             effective_stake_balance: Lamports(0),
-            active: true,
             vote_account_address: Pubkey::default(),
+            status: ValidatorStatus::default(),
         }
     }
 }

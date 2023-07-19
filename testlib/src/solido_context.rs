@@ -798,6 +798,49 @@ impl Context {
         .await
     }
 
+    pub async fn enqueue_validator_for_removal(&mut self, vote_account: Pubkey) {
+        let solido = self.get_solido().await;
+        let validator_index = solido.validators.position(&vote_account).unwrap();
+        send_transaction(
+            &mut self.context,
+            &[lido::instruction::enqueue_validator_for_removal(
+                &id(),
+                &lido::instruction::EnqueueValidatorForRemovalMetaV2 {
+                    lido: self.solido.pubkey(),
+                    manager: self.manager.pubkey(),
+                    validator_vote_account_to_deactivate: vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                },
+                validator_index,
+            )],
+            vec![&self.manager],
+        )
+        .await
+        .expect("Failed to deactivate validator.");
+    }
+
+    pub async fn try_enqueue_validator_for_removal(
+        &mut self,
+        vote_account: Pubkey,
+    ) -> transport::Result<()> {
+        let solido = self.get_solido().await;
+        let validator_index = solido.validators.position(&vote_account).unwrap();
+        send_transaction(
+            &mut self.context,
+            &[lido::instruction::remove_validator(
+                &id(),
+                &lido::instruction::RemoveValidatorMetaV2 {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_remove: vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                },
+                validator_index,
+            )],
+            vec![],
+        )
+        .await
+    }
+
     /// Create a new account, deposit from it, and return the resulting owner and stSOL account.
     pub async fn try_deposit(&mut self, amount: Lamports) -> transport::Result<(Keypair, Pubkey)> {
         // Create a new user who is going to do the deposit. The user's account
