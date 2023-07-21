@@ -280,7 +280,6 @@ pub fn command_create_solido(
             max_commission: *opts.max_commission(),
             min_block_production_rate: *opts.min_block_production_rate(),
             min_vote_success_rate: *opts.min_vote_success_rate(),
-            min_uptime: *opts.min_uptime(),
         },
         *opts.max_validators(),
         *opts.max_maintainers(),
@@ -675,11 +674,6 @@ impl fmt::Display for ShowSolidoOutput {
             "  Min vote success rate:     {:.2}%",
             100.0 * to_f64(self.solido.criteria.min_vote_success_rate),
         )?;
-        writeln!(
-            f,
-            "  Min uptime:                {:.2}%",
-            100.0 * to_f64(self.solido.criteria.min_uptime),
-        )?;
 
         writeln!(f, "\nValidator list {}", self.solido.validator_list)?;
         writeln!(
@@ -771,11 +765,6 @@ impl fmt::Display for ShowSolidoOutput {
                     f,
                     "      Vote Success Rate:          {:.2}%",
                     100.0 * to_f64(perf.vote_success_rate)
-                )?;
-                writeln!(
-                    f,
-                    "      Uptime:                     {:.2}%", // --
-                    100.0 * to_f64(perf.uptime)
                 )?;
             } else {
                 writeln!(f, "      Not yet collected.")?;
@@ -1310,7 +1299,6 @@ pub fn command_change_criteria(
             max_commission: *opts.max_commission(),
             min_block_production_rate: *opts.min_block_production_rate(),
             min_vote_success_rate: *opts.min_vote_success_rate(),
-            min_uptime: *opts.min_uptime(),
         },
     );
     propose_instruction(

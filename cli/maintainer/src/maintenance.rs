@@ -1118,7 +1118,6 @@ impl SolidoState {
                 &self.solido_program_id,
                 block_production_rate,
                 vote_success_rate,
-                uptime,
                 &lido::instruction::UpdateOffchainValidatorPerfAccountsMeta {
                     lido: self.solido_address,
                     validator_vote_account_to_update: *validator.pubkey(),

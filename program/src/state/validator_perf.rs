@@ -27,9 +27,6 @@ pub struct Criteria {
 
     /// If a validator has `vote_success_rate` lower than this, then it gets deactivated.
     pub min_vote_success_rate: u64,
-
-    /// If a validator has the uptime lower than this, then it gets deactivated.
-    pub min_uptime: u64,
 }
 
 impl Default for Criteria {
@@ -38,7 +35,6 @@ impl Default for Criteria {
             max_commission: 100,
             min_vote_success_rate: 0,
             min_block_production_rate: 0,
-            min_uptime: 0,
         }
     }
 }
@@ -48,13 +44,11 @@ impl Criteria {
         max_commission: u8,
         min_vote_success_rate: u64,
         min_block_production_rate: u64,
-        min_uptime: u64,
     ) -> Self {
         Self {
             max_commission,
             min_vote_success_rate,
             min_block_production_rate,
-            min_uptime,
         }
     }
 }
@@ -77,9 +71,6 @@ pub struct OffchainValidatorPerf {
 
     /// Ratio of successful votes to total votes.
     pub vote_success_rate: u64,
-
-    /// Ratio of how long the validator has been available to the total time in the epoch.
-    pub uptime: u64,
 }
 
 /// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
@@ -115,7 +106,6 @@ impl ValidatorPerf {
             && self.rest.as_ref().map_or(true, |perf| {
                 perf.vote_success_rate >= criteria.min_vote_success_rate
                     && perf.block_production_rate >= criteria.min_block_production_rate
-                    && perf.uptime >= criteria.min_uptime
             })
     }
 }

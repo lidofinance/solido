@@ -1271,7 +1271,7 @@ mod test_lido {
                 developer_account: Pubkey::new_unique(),
             },
             metrics: Metrics::new(),
-            criteria: Criteria::new(5, 0, 0, 0),
+            criteria: Criteria::new(5, 0, 0),
             validator_list: Pubkey::new_unique(),
             validator_perf_list: Pubkey::new_unique(),
             maintainer_list: Pubkey::new_unique(),

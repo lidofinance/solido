@@ -656,7 +656,6 @@ pub fn process_update_offchain_validator_perf(
     program_id: &Pubkey,
     block_production_rate: u64,
     vote_success_rate: u64,
-    uptime: u64,
     raw_accounts: &[AccountInfo],
 ) -> ProgramResult {
     let accounts = UpdateOffchainValidatorPerfAccountsInfo::try_from_slice(raw_accounts)?;
@@ -695,16 +694,14 @@ pub fn process_update_offchain_validator_perf(
         updated_at: clock.epoch,
         block_production_rate,
         vote_success_rate,
-        uptime,
     });
 
     msg!(
-        "Validator {} gets new perf: commission={}, block_production_rate={}, vote_success_rate={}, uptime={}",
+        "Validator {} gets new perf: commission={}, block_production_rate={}, vote_success_rate={}",
         validator_vote_account_address,
         commission,
         block_production_rate,
         vote_success_rate,
-        uptime,
     );
 
     Ok(())
@@ -1329,12 +1326,10 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::UpdateOffchainValidatorPerf {
             block_production_rate,
             vote_success_rate,
-            uptime,
         } => process_update_offchain_validator_perf(
             program_id,
             block_production_rate,
             vote_success_rate,
-            uptime,
             accounts,
         ),
         LidoInstruction::UpdateOnchainValidatorPerf => {

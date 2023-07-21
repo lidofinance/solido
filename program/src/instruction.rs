@@ -160,8 +160,6 @@ pub enum LidoInstruction {
         block_production_rate: u64,
         #[allow(dead_code)]
         vote_success_rate: u64,
-        #[allow(dead_code)]
-        uptime: u64,
     },
 
     /// Update the performance metrics for a validator, but only its on-chain part.
@@ -652,7 +650,6 @@ pub fn update_offchain_validator_perf(
     program_id: &Pubkey,
     block_production_rate: u64,
     vote_success_rate: u64,
-    uptime: u64,
     accounts: &UpdateOffchainValidatorPerfAccountsMeta,
 ) -> Instruction {
     Instruction {
@@ -661,7 +658,6 @@ pub fn update_offchain_validator_perf(
         data: LidoInstruction::UpdateOffchainValidatorPerf {
             block_production_rate,
             vote_success_rate,
-            uptime,
         }
         .to_vec(),
     }
