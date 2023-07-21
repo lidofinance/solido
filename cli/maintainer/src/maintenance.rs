@@ -75,7 +75,6 @@ pub enum MaintenanceOutput {
         validator_vote_account: Pubkey,
         block_production_rate: u64,
         vote_success_rate: u64,
-        uptime: u64,
     },
 
     UpdateOnchainValidatorPerf {
@@ -205,7 +204,6 @@ impl fmt::Display for MaintenanceOutput {
                 validator_vote_account,
                 block_production_rate,
                 vote_success_rate,
-                uptime,
             } => {
                 writeln!(f, "Updated off-chain validator performance.")?;
                 writeln!(
@@ -222,11 +220,6 @@ impl fmt::Display for MaintenanceOutput {
                     f,
                     "  New vote success rate:      {:.2}%",
                     100.0 * to_f64(*vote_success_rate)
-                )?;
-                writeln!(
-                    f,
-                    "  New uptime:                 {:.2}%",
-                    100.0 * to_f64(*uptime)
                 )?;
             }
             MaintenanceOutput::UpdateOnchainValidatorPerf {
@@ -1112,8 +1105,6 @@ impl SolidoState {
             let vote_success_rate =
                 per64(vote_state.credits().min(slots_per_epoch), slots_per_epoch);
 
-            let uptime = 0;
-
             let instruction = lido::instruction::update_offchain_validator_perf(
                 &self.solido_program_id,
                 block_production_rate,
@@ -1129,7 +1120,6 @@ impl SolidoState {
                 validator_vote_account: *validator.pubkey(),
                 block_production_rate,
                 vote_success_rate,
-                uptime,
             };
             return Some(MaintenanceInstruction::new(instruction, task));
         }
