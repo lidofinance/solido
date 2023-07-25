@@ -87,6 +87,15 @@ impl MaintenanceMetrics {
                 metrics: vec![Metric::new(self.polls)],
             },
         )?;
+        write_metric(
+            out,
+            &MetricFamily {
+                name: "solido_maintenance_completed_total",
+                help: "Number of times we actually did successfully perform maintenance",
+                type_: "counter",
+                metrics: vec![Metric::new(self.polls - self.errors)],
+            },
+        )?;
         write_metric(out, &MetricFamily {
             name: "solido_maintenance_errors_total",
             help: "Number of times we encountered an error while trying to perform maintenance, since launch.",
