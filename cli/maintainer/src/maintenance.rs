@@ -881,7 +881,7 @@ impl SolidoState {
             // and are now performing well.
             //
             // If the vote account is closed, no need to reactivate.
-            if !validator.is_active()
+            if validator.is_inactive()
                 && vote_state.as_ref().map_or(false, |vote_state| {
                     does_perform_well(
                         &self.solido.criteria,

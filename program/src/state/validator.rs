@@ -196,6 +196,12 @@ impl Validator {
         self.status == ValidatorStatus::AcceptingStakes
     }
 
+    /// True only if the validator has been suppressed, and not accepting new stake,
+    /// but they still has not been queued for removal.
+    pub fn is_inactive(&self) -> bool {
+        self.status == ValidatorStatus::StakesSuspended
+    }
+
     /// Mark the validator as active so that they could receive new stake.
     pub fn activate(&mut self) {
         if self.status != ValidatorStatus::StakesSuspended {
