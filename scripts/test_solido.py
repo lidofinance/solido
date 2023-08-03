@@ -7,7 +7,7 @@
 This script calls 'solana' and 'solido' to confirm that functionality works.
 
 It exits with exit code 0 if everything works as expected, or with a nonzero
-exit code if anything fails. It expects a test validator to be running at at the
+exit code if anything fails. It expects a test validator to be running at the
 default localhost port, and it expects a keypair at ~/.config/solana/id.json
 that corresponds to a sufficiently funded account.
 

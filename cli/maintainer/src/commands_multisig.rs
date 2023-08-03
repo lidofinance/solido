@@ -1416,9 +1416,9 @@ impl fmt::Display for ApproveOutput {
     }
 }
 
-fn approve<'a>(
+fn approve(
     config: &mut SnapshotClientConfig,
-    transactions: &'a [Pubkey],
+    transactions: &[Pubkey],
     multisig_program_id: &Pubkey,
     multisig_address: &Pubkey,
 ) -> std::result::Result<ApproveOutput, crate::Error> {
@@ -1524,28 +1524,30 @@ fn approve_batch(
     Ok(())
 }
 
-/// Prompt the user to enter 'Y' or 'N'.
+/// Prompt the user to enter Yes or No.
 fn ask_user_y_n(prompt: &'static str) -> bool {
     use std::io::{BufRead, Write};
-    let mut buf = String::new();
+
+    let stdin = std::io::stdin();
+    let mut stdout = std::io::stdout();
+    let mut input = String::new();
+
     loop {
         print!("{} [Y/N] ", prompt);
-        std::io::stdout()
+        stdout.flush().expect("Failed to flush to stdout.");
+
+        input.clear();
+        let _ = stdin
             .lock()
-            .flush()
-            .expect("Failed to flush to stdout.");
-        std::io::stdin()
-            .lock()
-            .read_line(&mut buf)
+            .read_line(&mut input)
             .expect("Failed to read from stdin.");
 
-        match &buf[..] {
-            "Y\n" => return true,
-            "N\n" => return false,
-            _ => {
-                println!("Please enter the character 'Y' or 'N' (case-sensitive).");
-                buf.clear();
-            }
+        let input = input.trim().to_lowercase();
+
+        match input {
+            _ if input.starts_with('y') => return true,
+            _ if input.starts_with('n') => return false,
+            _ => println!("Please enter `y` or `n`."),
         }
     }
 }
