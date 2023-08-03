@@ -70,6 +70,13 @@ jobs:
       - name: Check licenses
         run: scripts/check_licenses.py
 
+      - name: Install `libudev-dev`
+        run: |
+          # TODO: Pin the exact version with Nix instead, to make it easier to use
+          # the same version locally.
+          sudo apt update
+          sudo apt-get install -y libudev-dev
+
       - name: Clippy
         run: |
           cargo clippy --manifest-path cli/common/Cargo.toml -- --deny warnings
@@ -78,13 +85,6 @@ jobs:
           cargo clippy --manifest-path cli/maintainer/Cargo.toml -- --deny warnings
           cargo clippy --manifest-path program/Cargo.toml -- --deny warnings
           cargo clippy --manifest-path testlib/Cargo.toml -- --deny warnings
-
-      - name: Install `libudev-dev`
-        run: |
-          # TODO: Pin the exact version with Nix instead, to make it easier to use
-          # the same version locally.
-          sudo apt update
-          sudo apt-get install -y libudev-dev
 
       - name: Run unit tests
         run: |
@@ -95,19 +95,15 @@ jobs:
 
       - name: Build on-chain BPF programs
         run: |
-          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-
           # Build all BPF programs in the workspace, including the multisig program,
           # because we will need them later to test Solido.
           cargo build-bpf
 
       - name: Test on-chain BPF programs
         run: |
-          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-
           # But only run the tests for Solido itself, the SPL tests are already
           # executed upstream.
-          RUST_BACKTRACE=1 cargo test-bpf --manifest-path program/Cargo.toml
+          RUST_BACKTRACE=yesPlease cargo test-bpf --manifest-path program/Cargo.toml
 
       - name: Build CLI client
         run: cargo build --bin solido
