@@ -9,7 +9,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   SOLANA_VERSION: "1.10.38"
-  RUST_VERSION: "1.66.1"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -51,6 +50,13 @@ jobs:
         run: |
           sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_VERSION }}/install)"
 
+      - name: Setup Solana path
+        run: |
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          solana --version
+          solana config get
+
       - uses: dtolnay/rust-toolchain@1.66.1
         with:
           components: rustfmt, clippy
@@ -58,8 +64,25 @@ jobs:
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
 
+      - name: Install `cargo-license`
+        run: cargo install cargo-license --version=0.4.1
+
+      - name: Check licenses
+        run: scripts/check_licenses.py
+
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path cli/common/Cargo.toml -- --deny warnings
+          cargo clippy --manifest-path cli/listener/Cargo.toml -- --deny warnings
+          cargo clippy --manifest-path cli/listener/fuzz/Cargo.toml -- --deny warnings
+          cargo clippy --manifest-path cli/maintainer/Cargo.toml -- --deny warnings
+          cargo clippy --manifest-path program/Cargo.toml -- --deny warnings
+          cargo clippy --manifest-path testlib/Cargo.toml -- --deny warnings
+
       - name: Install `libudev-dev`
         run: |
+          # TODO: Pin the exact version with Nix instead, to make it easier to use
+          # the same version locally.
           sudo apt update
           sudo apt-get install -y libudev-dev
 
@@ -91,7 +114,6 @@ jobs:
 
       - name: Run Solido integration test
         run: |
-          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           validator=$(scripts/start_test_validator.py)
 
           # Perform initial Solana setup.
@@ -106,7 +128,6 @@ jobs:
 
       - name: Run Multisig integration test
         run: |
-          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           validator=$(scripts/start_test_validator.py)
 
           scripts/airdrop_lamports.sh
@@ -114,60 +135,3 @@ jobs:
           scripts/test_multisig.py
           killall -9 solana-test-validator
           rm -r test-ledger
-
-  lint:
-    runs-on: ubuntu-latest
-    if: false
-
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.66.1
-          override: true
-          components: rustfmt, clippy
-
-      - name: cache-build-artifacts
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.rustup/toolchains
-            # If we only cache ~/.cargo, for some reason Cargo still downloads crates later,
-            # so instead we cache the individual subdirectories and files, which hopefully
-            # works. Some of the top-level files are needed to make "cargo install" work.
-            ~/.cargo/.crates.toml
-            ~/.cargo/.crates2.json
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-            cli/listener/fuzz/target/
-          key: lint-1.9.28-v1-${{ hashFiles('Cargo.lock', 'cli/listener/fuzz/Cargo.lock') }}
-          restore-keys: lint-1.9.28-v1
-
-      - name: Install linters
-        run: |
-          # TODO: Pin the exact version with Nix.
-          sudo apt update
-          sudo apt-get install -y python3-pip libudev-dev
-          # Install with Pip instead of Apt because Ubuntu ships ancient versions.
-          # TODO: Pin the exact version with Nix instead, to make it easier to use
-          # the same version locally.
-          sudo pip3 install mypy==0.902
-          cargo install cargo-license --version 0.4.1
-
-      - name: Run Clippy
-        run: |
-          cargo clippy --manifest-path cli/common/Cargo.toml -- --deny warnings
-          cargo clippy --manifest-path cli/listener/Cargo.toml -- --deny warnings
-          cargo clippy --manifest-path cli/listener/fuzz/Cargo.toml -- --deny warnings
-          cargo clippy --manifest-path cli/maintainer/Cargo.toml -- --deny warnings
-          cargo clippy --manifest-path program/Cargo.toml -- --deny warnings
-          cargo clippy --manifest-path testlib/Cargo.toml -- --deny warnings
-
-      - name: Check license compatibility
-        run: |
-          scripts/check_licenses.py
