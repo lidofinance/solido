@@ -13,7 +13,7 @@ use solana_sdk::pubkey::{ParsePubkeyError, Pubkey};
 
 use lido::token::Lamports;
 use lido::token::StLamports;
-use solido_cli_common::snapshot::OutputMode;
+use solido_cli_common::{per64::parse_from_fractional_percentage, snapshot::OutputMode};
 
 pub fn get_option_from_config<T: FromStr>(
     name: &'static str,
@@ -253,8 +253,20 @@ cli_opt_struct! {
         max_maintainers: u32,
 
         /// The maximum validator fee a validator can have to be accepted by protocol.
-        #[clap(long, value_name = "int")]
-        max_commission_percentage: u8,
+        #[clap(long, value_name = "percentage")]
+        max_commission: u8,
+
+        /// The minimum vote success rate a validator must have to not be deactivated.
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_vote_success_rate: u64,
+
+        /// The minimum block production rate a validator must have to not be deactivated.
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_block_production_rate: u64,
+
+        /// The minimum block production rate a validator must have to not be deactivated.
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_uptime: u64,
 
         // See also the docs section of `create-solido` in main.rs for a description
         // of the fee shares.
@@ -293,11 +305,15 @@ cli_opt_struct! {
         #[clap(long)]
         validator_list_key_path: PathBuf => PathBuf::default(),
 
+        /// Optional argument for the validator performance list address,
+        /// if not passed, a random one will be created.
+        #[clap(long)]
+        validator_perf_list_key_path: PathBuf => PathBuf::default(),
+
         /// Optional argument for the maintainer list address, if not passed a random one
         /// will be created.
         #[clap(long)]
         maintainer_list_key_path: PathBuf => PathBuf::default(),
-
 
         /// Used to compute Solido's manager. Multisig instance.
         #[clap(long, value_name = "address")]
@@ -389,6 +405,18 @@ cli_opt_struct! {
 }
 
 cli_opt_struct! {
+    DeactivateIfViolatesOpts {
+        /// Address of the Solido program.
+        #[clap(long, value_name = "address")]
+        solido_program_id: Pubkey,
+
+        /// Account that stores the data for this Solido instance.
+        #[clap(long, value_name = "address")]
+        solido_address: Pubkey,
+    }
+}
+
+cli_opt_struct! {
     AddRemoveMaintainerOpts {
         /// Address of the Solido program.
         #[clap(long, value_name = "address")]
@@ -460,7 +488,7 @@ cli_opt_struct! {
 }
 
 cli_opt_struct! {
-    DeactivateValidatorIfCommissionExceedsMaxOpts {
+    ChangeCriteriaOpts {
         /// Address of the Solido program.
         #[clap(long, value_name = "address")]
         solido_program_id: Pubkey,
@@ -468,11 +496,35 @@ cli_opt_struct! {
         /// Account that stores the data for this Solido instance.
         #[clap(long, value_name = "address")]
         solido_address: Pubkey,
+
+        /// Max percent of rewards a validator can receive (validation commission), in range `[0, 100]`.
+        #[clap(long, value_name = "percentage")]
+        max_commission: u8,
+
+        /// Min block production rate that a validator must uphold.
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_block_production_rate: u64,
+
+        /// Min vote success rate that a validator must uphold.
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_vote_success_rate: u64,
+
+        /// Min uptime that a validator must maintain.
+        #[clap(long, value_name = "percentage", value_parser = parse_from_fractional_percentage)]
+        min_uptime: u64,
+
+        /// Multisig instance.
+        #[clap(long, value_name = "address")]
+        multisig_address: Pubkey,
+
+        /// Address of the Multisig program.
+        #[clap(long, value_name = "address")]
+        multisig_program_id: Pubkey,
     }
 }
 
 cli_opt_struct! {
-    SetMaxValidationCommissionOpts {
+    RemoveValidatorOpts {
         /// Address of the Solido program.
         #[clap(long, value_name = "address")]
         solido_program_id: Pubkey,
@@ -481,9 +533,9 @@ cli_opt_struct! {
         #[clap(long, value_name = "address")]
         solido_address: Pubkey,
 
-        /// Max percent of rewards a validator can recieve (validation commission), in range [0, 100]
-        #[clap(long, value_name = "fee")]
-        max_commission_percentage: u8,
+        /// Address of the validator vote account.
+        #[clap(long, value_name = "address")]
+        validator_vote_account: Pubkey,
 
         /// Multisig instance.
         #[clap(long, value_name = "address")]
@@ -531,7 +583,7 @@ impl CreateMultisigOpts {
 }
 
 cli_opt_struct! {
-ProposeUpgradeOpts {
+    ProposeUpgradeOpts {
         /// The multisig account whose owners should vote for this proposal.
         #[clap(long, value_name = "address")]
         multisig_address: Pubkey,
@@ -860,6 +912,10 @@ cli_opt_struct! {
         /// Validator list data address
         #[clap(long)]
         validator_list_address: Pubkey,
+
+        /// Validator list data address
+        #[clap(long)]
+        validator_perf_list_address: Pubkey,
 
         /// Maintainer list data address
         #[clap(long)]

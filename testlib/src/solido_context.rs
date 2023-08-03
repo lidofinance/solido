@@ -33,8 +33,8 @@ use lido::token::{Lamports, StLamports};
 use lido::{error::LidoError, instruction, RESERVE_ACCOUNT, STAKE_AUTHORITY};
 use lido::{
     state::{
-        AccountList, FeeRecipients, Lido, ListEntry, Maintainer, RewardDistribution, StakeDeposit,
-        Validator,
+        AccountList, Criteria, FeeRecipients, Lido, ListEntry, Maintainer, RewardDistribution,
+        StakeDeposit, Validator, ValidatorPerf,
     },
     MINT_AUTHORITY,
 };
@@ -85,6 +85,7 @@ pub struct Context {
     pub maintainer: Option<Keypair>,
     pub validator: Option<ValidatorAccounts>,
     pub validator_list: Keypair,
+    pub validator_perf_list: Keypair,
     pub maintainer_list: Keypair,
 
     pub treasury_st_sol_account: Pubkey,
@@ -95,7 +96,7 @@ pub struct Context {
     pub stake_authority: Pubkey,
     pub mint_authority: Pubkey,
 
-    pub max_commission_percentage: u8,
+    pub criteria: Criteria,
 }
 
 pub struct ValidatorAccounts {
@@ -183,6 +184,7 @@ pub async fn send_transaction(
 pub struct SolidoWithLists {
     pub lido: Lido,
     pub validators: AccountList<Validator>,
+    pub validator_perfs: AccountList<ValidatorPerf>,
     pub maintainers: AccountList<Maintainer>,
 }
 
@@ -195,6 +197,7 @@ impl Context {
         let manager = deterministic_keypair.new_keypair();
         let solido = deterministic_keypair.new_keypair();
         let validator_list = deterministic_keypair.new_keypair();
+        let validator_perf_list = deterministic_keypair.new_keypair();
         let maintainer_list = deterministic_keypair.new_keypair();
 
         let reward_distribution = RewardDistribution {
@@ -231,6 +234,7 @@ impl Context {
             manager,
             solido,
             validator_list,
+            validator_perf_list,
             maintainer_list,
             st_sol_mint: Pubkey::default(),
             maintainer: None,
@@ -242,7 +246,7 @@ impl Context {
             stake_authority,
             mint_authority,
             deterministic_keypair,
-            max_commission_percentage: 5,
+            criteria: Criteria::new(5, 0, 0),
         };
 
         result.st_sol_mint = result.create_mint(result.mint_authority).await;
@@ -263,6 +267,8 @@ impl Context {
 
         let rent_reserve = rent.minimum_balance(0);
         let validator_list_size = AccountList::<Validator>::required_bytes(max_validators);
+        let validator_perf_list_size = AccountList::<ValidatorPerf>::required_bytes(max_validators);
+        let rent_validator_perf_list = rent.minimum_balance(validator_perf_list_size);
         let rent_validator_list = rent.minimum_balance(validator_list_size);
 
         let maintainer_list_size = AccountList::<Maintainer>::required_bytes(max_maintainers);
@@ -292,6 +298,13 @@ impl Context {
                 ),
                 system_instruction::create_account(
                     &payer,
+                    &result.validator_perf_list.pubkey(),
+                    rent_validator_perf_list,
+                    validator_perf_list_size as u64,
+                    &id(),
+                ),
+                system_instruction::create_account(
+                    &payer,
                     &result.maintainer_list.pubkey(),
                     rent_maintainer_list,
                     maintainer_list_size as u64,
@@ -300,9 +313,9 @@ impl Context {
                 instruction::initialize(
                     &id(),
                     result.reward_distribution.clone(),
+                    result.criteria.clone(),
                     max_validators,
                     max_maintainers,
-                    result.max_commission_percentage,
                     &instruction::InitializeAccountsMeta {
                         lido: result.solido.pubkey(),
                         manager: result.manager.pubkey(),
@@ -311,6 +324,7 @@ impl Context {
                         developer_account: result.developer_st_sol_account,
                         reserve_account: result.reserve_address,
                         validator_list: result.validator_list.pubkey(),
+                        validator_perf_list: result.validator_perf_list.pubkey(),
                         maintainer_list: result.maintainer_list.pubkey(),
                     },
                 ),
@@ -318,6 +332,7 @@ impl Context {
             vec![
                 &result.solido,
                 &result.validator_list,
+                &result.validator_perf_list,
                 &result.maintainer_list,
             ],
         )
@@ -726,7 +741,7 @@ impl Context {
             .create_vote_account(
                 &node_account,
                 withdraw_authority.pubkey(),
-                self.max_commission_percentage,
+                self.criteria.max_commission,
             )
             .await;
 
@@ -765,6 +780,49 @@ impl Context {
     }
 
     pub async fn try_remove_validator(&mut self, vote_account: Pubkey) -> transport::Result<()> {
+        let solido = self.get_solido().await;
+        let validator_index = solido.validators.position(&vote_account).unwrap();
+        send_transaction(
+            &mut self.context,
+            &[lido::instruction::remove_validator(
+                &id(),
+                &lido::instruction::RemoveValidatorMetaV2 {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_remove: vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                },
+                validator_index,
+            )],
+            vec![],
+        )
+        .await
+    }
+
+    pub async fn enqueue_validator_for_removal(&mut self, vote_account: Pubkey) {
+        let solido = self.get_solido().await;
+        let validator_index = solido.validators.position(&vote_account).unwrap();
+        send_transaction(
+            &mut self.context,
+            &[lido::instruction::enqueue_validator_for_removal(
+                &id(),
+                &lido::instruction::EnqueueValidatorForRemovalMetaV2 {
+                    lido: self.solido.pubkey(),
+                    manager: self.manager.pubkey(),
+                    validator_vote_account_to_remove: vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                },
+                validator_index,
+            )],
+            vec![&self.manager],
+        )
+        .await
+        .expect("Failed to deactivate validator.");
+    }
+
+    pub async fn try_enqueue_validator_for_removal(
+        &mut self,
+        vote_account: Pubkey,
+    ) -> transport::Result<()> {
         let solido = self.get_solido().await;
         let validator_index = solido.validators.position(&vote_account).unwrap();
         send_transaction(
@@ -1183,6 +1241,76 @@ impl Context {
             .expect("Failed to withdraw inactive stake.");
     }
 
+    /// Update the commission in the performance readings for the given validator.
+    pub async fn try_update_onchain_validator_perf(
+        &mut self,
+        validator_vote_account: Pubkey,
+    ) -> transport::Result<()> {
+        send_transaction(
+            &mut self.context,
+            &[instruction::update_onchain_validator_perf(
+                &id(),
+                &instruction::UpdateOnchainValidatorPerfAccountsMeta {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_update: validator_vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                    validator_perf_list: self.validator_perf_list.pubkey(),
+                },
+            )],
+            vec![],
+        )
+        .await
+    }
+
+    pub async fn update_onchain_validator_perf_commission(
+        &mut self,
+        validator_vote_account: Pubkey,
+    ) {
+        self.try_update_onchain_validator_perf(validator_vote_account)
+            .await
+            .expect("Validator performance metrics could always be updated");
+    }
+
+    /// Update the perf account for the given validator with the given reading.
+    pub async fn try_update_offchain_validator_perf(
+        &mut self,
+        validator_vote_account: Pubkey,
+        new_block_production_rate: u64,
+        new_vote_success_rate: u64,
+    ) -> transport::Result<()> {
+        send_transaction(
+            &mut self.context,
+            &[instruction::update_offchain_validator_perf(
+                &id(),
+                new_block_production_rate,
+                new_vote_success_rate,
+                &instruction::UpdateOffchainValidatorPerfAccountsMeta {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_update: validator_vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                    validator_perf_list: self.validator_perf_list.pubkey(),
+                },
+            )],
+            vec![],
+        )
+        .await
+    }
+
+    pub async fn update_offchain_validator_perf(
+        &mut self,
+        validator_vote_account: Pubkey,
+        new_block_production_rate: u64,
+        new_vote_success_rate: u64,
+    ) {
+        self.try_update_offchain_validator_perf(
+            validator_vote_account,
+            new_block_production_rate,
+            new_vote_success_rate,
+        )
+        .await
+        .expect("Validator performance metrics could always be updated");
+    }
+
     pub async fn try_get_account(&mut self, address: Pubkey) -> Option<Account> {
         self.context
             .banks_client
@@ -1264,6 +1392,10 @@ impl Context {
             .get_account_list::<Validator>(lido.validator_list)
             .await
             .unwrap_or_else(|| AccountList::<Validator>::new_default(0));
+        let validator_perfs = self
+            .get_account_list::<ValidatorPerf>(lido.validator_perf_list)
+            .await
+            .unwrap_or_else(|| AccountList::<ValidatorPerf>::new_default(0));
         let maintainers = self
             .get_account_list::<Maintainer>(lido.maintainer_list)
             .await
@@ -1272,6 +1404,7 @@ impl Context {
         SolidoWithLists {
             lido,
             validators,
+            validator_perfs,
             maintainers,
         }
     }
@@ -1360,41 +1493,82 @@ impl Context {
         VoteState::deserialize(&vote_acc.data)
     }
 
-    pub async fn try_set_max_commission_percentage(&mut self, fee: u8) -> transport::Result<()> {
+    pub async fn try_set_max_commission_percentage(
+        &mut self,
+        max_commission: u8,
+    ) -> transport::Result<()> {
+        let solido = self.get_solido().await;
+        let current_criteria = solido.lido.criteria;
+
         send_transaction(
             &mut self.context,
-            &[lido::instruction::set_max_commission_percentage(
+            &[lido::instruction::change_criteria(
                 &id(),
-                &lido::instruction::SetMaxValidationCommissionMeta {
+                &lido::instruction::ChangeCriteriaMeta {
                     lido: self.solido.pubkey(),
                     manager: self.manager.pubkey(),
                 },
-                fee,
+                Criteria {
+                    max_commission,
+                    ..current_criteria
+                },
             )],
             vec![&self.manager],
         )
         .await
     }
 
-    pub async fn try_deactivate_validator_if_commission_exceeds_max(
+    pub async fn try_change_criteria(&mut self, new_criteria: &Criteria) -> transport::Result<()> {
+        send_transaction(
+            &mut self.context,
+            &[lido::instruction::change_criteria(
+                &id(),
+                &lido::instruction::ChangeCriteriaMeta {
+                    lido: self.solido.pubkey(),
+                    manager: self.manager.pubkey(),
+                },
+                new_criteria.clone(),
+            )],
+            vec![&self.manager],
+        )
+        .await
+    }
+
+    pub async fn try_deactivate_if_violates(
         &mut self,
         vote_account: Pubkey,
     ) -> transport::Result<()> {
-        let solido = self.get_solido().await;
-        let validator_index = solido.validators.position(&vote_account).unwrap();
         send_transaction(
             &mut self.context,
-            &[
-                lido::instruction::deactivate_validator_if_commission_exceeds_max(
-                    &id(),
-                    &lido::instruction::DeactivateValidatorIfCommissionExceedsMaxMeta {
-                        lido: self.solido.pubkey(),
-                        validator_vote_account_to_deactivate: vote_account,
-                        validator_list: self.validator_list.pubkey(),
-                    },
-                    validator_index,
-                ),
-            ],
+            &[lido::instruction::deactivate_if_violates(
+                &id(),
+                &lido::instruction::DeactivateIfViolatesMeta {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_deactivate: vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                    validator_perf_list: self.validator_perf_list.pubkey(),
+                },
+            )],
+            vec![],
+        )
+        .await
+    }
+
+    pub async fn try_reactivate_if_complies(
+        &mut self,
+        vote_account: Pubkey,
+    ) -> transport::Result<()> {
+        send_transaction(
+            &mut self.context,
+            &[lido::instruction::reactivate_if_complies(
+                &id(),
+                &lido::instruction::ReactivateIfCompliesMeta {
+                    lido: self.solido.pubkey(),
+                    validator_vote_account_to_reactivate: vote_account,
+                    validator_list: self.validator_list.pubkey(),
+                    validator_perf_list: self.validator_perf_list.pubkey(),
+                },
+            )],
             vec![],
         )
         .await

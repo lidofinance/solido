@@ -50,7 +50,7 @@ pub fn get_target_balance(
         .entries
         .iter()
         .map(|validator| {
-            if validator.active {
+            if validator.is_active() {
                 lamports_per_validator
             } else {
                 Lamports(0)
@@ -82,7 +82,7 @@ pub fn get_target_balance(
         if remainder == Lamports(0) {
             break;
         }
-        if validator.active {
+        if validator.is_active() {
             *target = (*target + Lamports(1)).expect(
                 "Does not overflow because per-validator balance is at most total_lamports.",
             );
@@ -176,10 +176,11 @@ pub fn get_minimum_stake_validator_index_amount(
 
     // Our initial index, that will be returned when no validator is below its target,
     // is the first active validator.
-    let mut index =
-        validators.entries.iter().position(|v| v.active).expect(
-            "get_minimum_stake_validator_index_amount requires at least one active validator.",
-        );
+    let mut index = validators
+        .entries
+        .iter()
+        .position(|v| v.is_active())
+        .expect("get_minimum_stake_validator_index_amount requires at least one active validator.");
     let mut lowest_balance = validators.entries[index].compute_effective_stake_balance();
     let mut amount = Lamports(
         target_balance[index].0.saturating_sub(
@@ -190,7 +191,7 @@ pub fn get_minimum_stake_validator_index_amount(
     );
 
     for (i, (validator, target)) in validators.entries.iter().zip(target_balance).enumerate() {
-        if validator.active && validator.compute_effective_stake_balance() < lowest_balance {
+        if validator.is_active() && validator.compute_effective_stake_balance() < lowest_balance {
             index = i;
             amount = Lamports(
                 target
@@ -217,7 +218,7 @@ pub fn get_validator_to_withdraw(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::state::ValidatorList;
+    use crate::state::{ValidatorList, ValidatorStatus};
     use crate::token::Lamports;
 
     #[test]
@@ -294,7 +295,7 @@ mod test {
         let mut validators = ValidatorList::new_default(3);
         validators.entries[0].stake_accounts_balance = Lamports(101);
         validators.entries[1].stake_accounts_balance = Lamports(0);
-        validators.entries[1].active = false;
+        validators.entries[1].status = ValidatorStatus::StakesSuspended;
         validators.entries[2].stake_accounts_balance = Lamports(99);
 
         let undelegated_stake = Lamports(51);
@@ -314,7 +315,7 @@ mod test {
         let mut validators = ValidatorList::new_default(3);
         validators.entries[0].stake_accounts_balance = Lamports(100);
         validators.entries[1].stake_accounts_balance = Lamports(100);
-        validators.entries[1].active = false;
+        validators.entries[1].status = ValidatorStatus::StakesSuspended;
         validators.entries[2].stake_accounts_balance = Lamports(300);
 
         let undelegated_stake = Lamports(0);
@@ -334,9 +335,9 @@ mod test {
         validators.entries[0].stake_accounts_balance = Lamports(1);
         validators.entries[1].stake_accounts_balance = Lamports(2);
         validators.entries[2].stake_accounts_balance = Lamports(3);
-        validators.entries[0].active = false;
-        validators.entries[1].active = false;
-        validators.entries[2].active = false;
+        validators.entries[0].status = ValidatorStatus::StakesSuspended;
+        validators.entries[1].status = ValidatorStatus::StakesSuspended;
+        validators.entries[2].status = ValidatorStatus::StakesSuspended;
 
         let undelegated_stake = Lamports(0);
         let result = get_target_balance(undelegated_stake, &validators);
@@ -351,7 +352,7 @@ mod test {
         let mut validators = ValidatorList::new_default(2);
         validators.entries[0].stake_accounts_balance = Lamports(0);
         validators.entries[1].stake_accounts_balance = Lamports(10);
-        validators.entries[0].active = false;
+        validators.entries[0].status = ValidatorStatus::StakesSuspended;
 
         let undelegated_stake = Lamports(0);
         let targets = get_target_balance(undelegated_stake, &validators).unwrap();

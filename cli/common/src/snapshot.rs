@@ -53,6 +53,7 @@ use spl_token::solana_program::hash::Hash;
 use crate::error::{
     self, Error, MissingAccountError, MissingValidatorInfoError, SerializationError,
 };
+use crate::per64::per64;
 use crate::validator_info_utils::ValidatorInfo;
 
 pub enum SnapshotError {
@@ -214,6 +215,45 @@ impl<'a> Snapshot<'a> {
             // The account was not included in the snapshot, we need to retry.
             None => Err(SnapshotError::MissingAccount),
         }
+    }
+
+    /// Get a map of validator identities to a numerator of their block production rate.
+    /// It's like percentage, but it's per-2^64.
+    pub fn get_all_block_production_rates(&self) -> crate::Result<HashMap<Pubkey, u64>> {
+        assert!(std::mem::size_of::<u64>() >= std::mem::size_of::<usize>());
+
+        let response = self
+            .rpc_client
+            .get_block_production()
+            .map_err(|err| {
+                let wrapped_err = Error::from(err);
+                let result: Error = Box::new(wrapped_err);
+                result
+            })?
+            .value;
+
+        // Map the keys from textual form returned by the RPC to the decoded `Pubkey`,
+        // and the values to the rate.
+        let rates_of = response
+            .by_identity
+            .into_iter()
+            .map(|(key, (leader_slots, blocks_produced))| {
+                Pubkey::from_str(&key).map(|key| {
+                    let rate = if blocks_produced > 0 {
+                        per64(leader_slots as u64, blocks_produced as u64)
+                    } else {
+                        0
+                    };
+                    (key, rate)
+                })
+            })
+            .collect::<Result<HashMap<_, _>, _>>()
+            .map_err(|err| {
+                let result: Error = Box::new(err);
+                result
+            })?;
+
+        Ok(rates_of)
     }
 
     /// Get list of accounts of type T from Solido

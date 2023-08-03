@@ -28,16 +28,21 @@ use solana_sdk::{
 };
 use solana_vote_program::vote_state::VoteState;
 use solido_cli_common::{
-    error::MaintenanceError, snapshot::SnapshotConfig, snapshot::SnapshotError,
-    validator_info_utils::ValidatorInfo, Result,
+    error::MaintenanceError,
+    per64::{per64, to_f64},
+    snapshot::SnapshotConfig,
+    snapshot::SnapshotError,
+    validator_info_utils::ValidatorInfo,
+    Result,
 };
 use spl_token::state::Mint;
 
 use lido::{
+    logic::does_perform_well,
     processor::StakeType,
     stake_account::StakeAccount,
     stake_account::{deserialize_stake_account, StakeBalance},
-    state::{AccountList, Lido, ListEntry, Maintainer, Validator},
+    state::{AccountList, Lido, ListEntry, Maintainer, Validator, ValidatorPerf},
     token::Lamports,
     token::Rational,
     token::StLamports,
@@ -63,6 +68,20 @@ pub enum MaintenanceOutput {
     },
 
     UpdateExchangeRate,
+
+    UpdateOffchainValidatorPerf {
+        // The vote account of the validator we want to update.
+        #[serde(serialize_with = "serialize_b58")]
+        validator_vote_account: Pubkey,
+        block_production_rate: u64,
+        vote_success_rate: u64,
+    },
+
+    UpdateOnchainValidatorPerf {
+        // The vote account of the validator we want to update.
+        #[serde(serialize_with = "serialize_b58")]
+        validator_vote_account: Pubkey,
+    },
 
     UpdateStakeAccountBalance {
         /// The vote account of the validator that we want to update.
@@ -93,11 +112,15 @@ pub enum MaintenanceOutput {
     },
 
     UnstakeFromInactiveValidator(Unstake),
-    RemoveValidator {
+    DeactivateIfViolates {
         #[serde(serialize_with = "serialize_b58")]
         validator_vote_account: Pubkey,
     },
-    DeactivateValidatorIfCommissionExceedsMax {
+    ReactivateIfComplies {
+        #[serde(serialize_with = "serialize_b58")]
+        validator_vote_account: Pubkey,
+    },
+    RemoveValidator {
         #[serde(serialize_with = "serialize_b58")]
         validator_vote_account: Pubkey,
     },
@@ -177,6 +200,38 @@ impl fmt::Display for MaintenanceOutput {
                     unstake_withdrawn_to_reserve
                 )?;
             }
+            MaintenanceOutput::UpdateOffchainValidatorPerf {
+                validator_vote_account,
+                block_production_rate,
+                vote_success_rate,
+            } => {
+                writeln!(f, "Updated off-chain validator performance.")?;
+                writeln!(
+                    f,
+                    "  Validator vote account:     {}",
+                    validator_vote_account
+                )?;
+                writeln!(
+                    f,
+                    "  New block production rate:  {:.2}%",
+                    100.0 * to_f64(*block_production_rate)
+                )?;
+                writeln!(
+                    f,
+                    "  New vote success rate:      {:.2}%",
+                    100.0 * to_f64(*vote_success_rate)
+                )?;
+            }
+            MaintenanceOutput::UpdateOnchainValidatorPerf {
+                validator_vote_account,
+            } => {
+                writeln!(f, "Updated on-chain validator performance.")?;
+                writeln!(
+                    f,
+                    "  Validator vote account:     {}",
+                    validator_vote_account
+                )?;
+            }
             MaintenanceOutput::MergeStake {
                 validator_vote_account,
                 from_stake,
@@ -203,20 +258,22 @@ impl fmt::Display for MaintenanceOutput {
             MaintenanceOutput::UnstakeFromActiveValidator(unstake) => {
                 writeln!(f, "Unstake from active validator\n{}", unstake)?;
             }
+            MaintenanceOutput::DeactivateIfViolates {
+                validator_vote_account,
+            } => {
+                writeln!(f, "Deactivate a validator that fails to meet our criteria.")?;
+                writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
+            }
+            MaintenanceOutput::ReactivateIfComplies {
+                validator_vote_account,
+            } => {
+                writeln!(f, "Reactivate a validator that meets our criteria.")?;
+                writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
+            }
             MaintenanceOutput::RemoveValidator {
                 validator_vote_account,
             } => {
-                writeln!(f, "Remove validator")?;
-                writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
-            }
-            MaintenanceOutput::DeactivateValidatorIfCommissionExceedsMax {
-                validator_vote_account,
-            } => {
-                writeln!(f, "Check max commission violation.")?;
-                writeln!(
-                    f,
-                    "Deactivate validator that charges more commission than we allow."
-                )?;
+                writeln!(f, "Remove a validator.")?;
                 writeln!(f, "  Validator vote account: {}", validator_vote_account)?;
             }
         }
@@ -286,6 +343,14 @@ pub struct SolidoState {
     /// the balance of the validator's identity account (which pays for the
     /// votes).
     pub validator_identity_account_balances: Vec<Lamports>,
+
+    /// For each validator, in the same order as in `solido.validators`, holds
+    /// the performance metrics for it.
+    pub validator_perfs: Vec<Option<ValidatorPerf>>,
+
+    /// For each validator, in the same order as in `solido.validators`, holds
+    /// the block production rate scaled by `u64::MAX`.
+    pub validator_block_production_rates: Vec<Option<u64>>,
 
     /// For each validator, in the same order as in `solido.validators`, holds
     /// the validator info (name and Keybase username).
@@ -418,7 +483,7 @@ impl SolidoState {
         denominator: 10,
     };
 
-    /// Read the state from the on-chain data.
+    /// Capture the snapshot of the state related to Solido.
     pub fn new(
         config: &mut SnapshotConfig,
         solido_program_id: &Pubkey,
@@ -431,6 +496,9 @@ impl SolidoState {
         let validators = config
             .client
             .get_account_list::<Validator>(&solido.validator_list)?;
+        let all_validator_perfs = config
+            .client
+            .get_account_list::<ValidatorPerf>(&solido.validator_perf_list)?;
         let maintainers = config
             .client
             .get_account_list::<Maintainer>(&solido.maintainer_list)?;
@@ -446,16 +514,30 @@ impl SolidoState {
         let epoch_schedule = config.client.get_epoch_schedule()?;
         let stake_history = config.client.get_stake_history()?;
 
+        let all_block_production_rates = config.client.get_all_block_production_rates()?;
+
         let mut validator_stake_accounts = Vec::new();
         let mut validator_unstake_accounts = Vec::new();
         let mut validator_vote_account_balances = Vec::new();
         let mut validator_identity_account_balances = Vec::new();
         let mut validator_vote_accounts = Vec::new();
+        let mut validator_perfs = Vec::new();
+        let mut validator_block_production_rates = Vec::new();
         let mut validator_infos = Vec::new();
         for validator in validators.entries.iter() {
             match config.client.get_account(validator.pubkey()) {
                 Ok(vote_account) => {
                     let vote_state = config.client.get_vote_account(validator.pubkey())?;
+
+                    let maybe_perf = all_validator_perfs
+                        .entries
+                        .iter()
+                        .find(|perf| perf.pubkey() == validator.pubkey());
+                    validator_perfs.push(maybe_perf.cloned());
+
+                    let maybe_block_production_rate =
+                        all_block_production_rates.get(&vote_state.node_pubkey);
+                    validator_block_production_rates.push(maybe_block_production_rate.cloned());
 
                     // prometheus
                     validator_vote_account_balances
@@ -524,6 +606,8 @@ impl SolidoState {
             validator_vote_account_balances,
             validator_vote_accounts,
             validator_identity_account_balances,
+            validator_perfs,
+            validator_block_production_rates,
             validator_infos,
             maintainer_balances,
             reserve_address,
@@ -700,7 +784,7 @@ impl SolidoState {
         {
             // We are only interested in unstaking from inactive validators that
             // have stake accounts.
-            if validator.active {
+            if validator.is_active() {
                 continue;
             }
             // Validator already has 3 unstake accounts.
@@ -735,49 +819,98 @@ impl SolidoState {
 
     /// If there is a validator which exceeded commission limit or it's vote account is closed,
     /// try to deactivate it.
-    pub fn try_deactivate_validator_if_commission_exceeds_max(
-        &self,
-    ) -> Option<MaintenanceInstruction> {
-        for (validator_index, (validator, vote_state)) in self
+    pub fn try_deactivate_if_violates(&self) -> Option<MaintenanceInstruction> {
+        for (i, (validator, vote_state)) in self
             .validators
             .entries
             .iter()
             .zip(self.validator_vote_accounts.iter())
             .enumerate()
         {
-            if !validator.active {
+            if !validator.is_active() {
                 continue;
             }
 
-            // We are only interested in validators that violate commission limit
-            if let Some(state) = vote_state {
-                if state.commission <= self.solido.max_commission_percentage {
+            // We are only interested in validators that violate the criteria.
+            if let Some(vote_state) = vote_state {
+                if does_perform_well(
+                    &self.solido.criteria,
+                    vote_state.commission,
+                    self.validator_perfs[i].as_ref(),
+                ) {
+                    // Validator is performing well, no need to deactivate.
                     continue;
                 }
             } else {
-                // Vote account is closed
+                // Vote account is closed -- falling through to deactivation.
             }
 
-            let task = MaintenanceOutput::DeactivateValidatorIfCommissionExceedsMax {
+            let task = MaintenanceOutput::DeactivateIfViolates {
                 validator_vote_account: *validator.pubkey(),
             };
 
-            let instruction = lido::instruction::deactivate_validator_if_commission_exceeds_max(
+            let instruction = lido::instruction::deactivate_if_violates(
                 &self.solido_program_id,
-                &lido::instruction::DeactivateValidatorIfCommissionExceedsMaxMeta {
+                &lido::instruction::DeactivateIfViolatesMeta {
                     lido: self.solido_address,
                     validator_vote_account_to_deactivate: *validator.pubkey(),
                     validator_list: self.solido.validator_list,
+                    validator_perf_list: self.solido.validator_perf_list,
                 },
-                u32::try_from(validator_index).expect("Too many validators"),
             );
             return Some(MaintenanceInstruction::new(instruction, task));
         }
         None
     }
 
+    /// If a validator is back into the commission limit, try to bring it back.
+    pub fn try_reactivate_if_complies(&self) -> Option<MaintenanceInstruction> {
+        if !self.is_at_epoch_end() {
+            // We only try to reactivate them at the end of the epoch.
+            return None;
+        }
+
+        for (i, (validator, vote_state)) in self
+            .validators
+            .entries
+            .iter()
+            .zip(self.validator_vote_accounts.iter())
+            .enumerate()
+        {
+            // We are only interested in validators that are inactive,
+            // and are now performing well.
+            //
+            // If the vote account is closed, no need to reactivate.
+            if validator.is_inactive()
+                && vote_state.as_ref().map_or(false, |vote_state| {
+                    does_perform_well(
+                        &self.solido.criteria,
+                        vote_state.commission,
+                        self.validator_perfs[i].as_ref(),
+                    )
+                })
+            {
+                let task = MaintenanceOutput::ReactivateIfComplies {
+                    validator_vote_account: *validator.pubkey(),
+                };
+                let instruction = lido::instruction::reactivate_if_complies(
+                    &self.solido_program_id,
+                    &lido::instruction::ReactivateIfCompliesMeta {
+                        lido: self.solido_address,
+                        validator_vote_account_to_reactivate: *validator.pubkey(),
+                        validator_list: self.solido.validator_list,
+                        validator_perf_list: self.solido.validator_perf_list,
+                    },
+                );
+                return Some(MaintenanceInstruction::new(instruction, task));
+            }
+        }
+
+        None
+    }
+
     /// If there is a validator ready for removal, try to remove it.
-    pub fn try_remove_validator(&self) -> Option<MaintenanceInstruction> {
+    pub fn try_remove_pending_validators(&self) -> Option<MaintenanceInstruction> {
         for (validator_index, validator) in self.validators.entries.iter().enumerate() {
             // We are only interested in validators that can be removed.
             if validator.check_can_be_removed().is_err() {
@@ -888,6 +1021,116 @@ impl SolidoState {
         let task = MaintenanceOutput::UpdateExchangeRate;
 
         Some(MaintenanceInstruction::new(instruction, task))
+    }
+
+    fn do_update_onchain_validator_perfs(&self) -> Option<MaintenanceInstruction> {
+        for (i, (validator, vote_state)) in self
+            .validators
+            .entries
+            .iter()
+            .zip(self.validator_vote_accounts.iter())
+            .enumerate()
+        {
+            let Some(vote_state) = vote_state else {
+                // Vote account is closed, so this validator shall be removed
+                // by a the subsequent `deactivate_if_violates` step.
+                continue;
+            };
+
+            let maybe_perf = self.validator_perfs[i].as_ref();
+
+            let expired = maybe_perf
+                .map_or(true, |perf| perf.commission_updated_at < self.clock.epoch)
+                && self.is_at_epoch_end();
+
+            let current_commission = vote_state.commission;
+            let exceeds_max = maybe_perf.map_or(false, |perf| {
+                current_commission > self.solido.criteria.max_commission
+                    && current_commission > perf.commission
+            });
+
+            // We should only overwrite the stored commission
+            // if it is beyond the allowed range, or at the epoch's end.
+            let should_update = expired || exceeds_max;
+            if !should_update {
+                continue;
+            }
+
+            let instruction = lido::instruction::update_onchain_validator_perf(
+                &self.solido_program_id,
+                &lido::instruction::UpdateOnchainValidatorPerfAccountsMeta {
+                    lido: self.solido_address,
+                    validator_vote_account_to_update: *validator.pubkey(),
+                    validator_list: self.solido.validator_list,
+                    validator_perf_list: self.solido.validator_perf_list,
+                },
+            );
+            let task = MaintenanceOutput::UpdateOnchainValidatorPerf {
+                validator_vote_account: *validator.pubkey(),
+            };
+            return Some(MaintenanceInstruction::new(instruction, task));
+        }
+
+        None
+    }
+
+    fn do_update_offchain_validator_perfs(&self) -> Option<MaintenanceInstruction> {
+        if !self.is_at_epoch_end() {
+            // We only update the off-chain part of the validator performance at the end of the epoch.
+            return None;
+        }
+
+        for (i, validator) in self.validators.entries.iter().enumerate() {
+            let perf = self.validator_perfs[i].as_ref();
+            let should_update = perf.map_or(true, |perf| {
+                perf.rest
+                    .as_ref()
+                    .map_or(true, |rest| self.clock.epoch > rest.updated_at)
+            });
+            if !should_update {
+                // This validator's performance has already been updated in this epoch, nothing to do.
+                continue;
+            }
+
+            let Some(vote_state) = self.validator_vote_accounts[i].as_ref() else {
+                // Vote account is closed, so this validator shall be removed
+                // by a subsequent `deactivate_if_violates` step.
+                continue;
+            };
+
+            let block_production_rate =
+                self.validator_block_production_rates[i].unwrap_or(u64::MAX);
+
+            let slots_per_epoch = self.epoch_schedule.get_slots_in_epoch(self.clock.epoch);
+            let vote_success_rate =
+                per64(vote_state.credits().min(slots_per_epoch), slots_per_epoch);
+
+            let instruction = lido::instruction::update_offchain_validator_perf(
+                &self.solido_program_id,
+                block_production_rate,
+                vote_success_rate,
+                &lido::instruction::UpdateOffchainValidatorPerfAccountsMeta {
+                    lido: self.solido_address,
+                    validator_vote_account_to_update: *validator.pubkey(),
+                    validator_list: self.solido.validator_list,
+                    validator_perf_list: self.solido.validator_perf_list,
+                },
+            );
+            let task = MaintenanceOutput::UpdateOffchainValidatorPerf {
+                validator_vote_account: *validator.pubkey(),
+                block_production_rate,
+                vote_success_rate,
+            };
+            return Some(MaintenanceInstruction::new(instruction, task));
+        }
+
+        None
+    }
+
+    /// Tell the program how well the validators are performing.
+    pub fn try_update_validator_perfs(&self) -> Option<MaintenanceInstruction> {
+        None.or_else(|| self.do_update_onchain_validator_perfs())
+            .or_else(|| self.do_update_offchain_validator_perfs())
     }
 
     /// Check if any validator's balance is outdated, and if so, update it.
@@ -1422,6 +1665,29 @@ impl SolidoState {
         }
     }
 
+    pub fn slots_into_current_epoch(&self) -> u64 {
+        let first_slot_in_current_epoch = self
+            .epoch_schedule
+            .get_first_slot_in_epoch(self.clock.epoch);
+        self.clock.slot - first_slot_in_current_epoch
+    }
+
+    pub fn is_at_epoch_end(&self) -> bool {
+        let slots_into_current_epoch = self.slots_into_current_epoch();
+        let slots_per_epoch = self.epoch_schedule.get_slots_in_epoch(self.clock.epoch);
+
+        let epoch_progress = Rational {
+            numerator: slots_into_current_epoch,
+            denominator: slots_per_epoch,
+        };
+        let near_epoch_end = Rational {
+            numerator: self.end_of_epoch_threshold as u64,
+            denominator: 100, // `end_of_epoch_threshold` argument supplied as a percentage.
+        };
+
+        epoch_progress >= near_epoch_end
+    }
+
     /// Return None if we observe we moved past `1 -
     /// config.end_of_epoch_threshold`%. Return Some(()) if the above
     /// condition fails or `self.stake_unstake_any_time` is set to
@@ -1498,15 +1764,17 @@ pub fn try_perform_maintenance(
         // as possible.
         .or_else(|| state.try_merge_on_all_stakes())
         .or_else(|| state.try_update_exchange_rate())
+        .or_else(|| state.try_update_validator_perfs())
+        .or_else(|| state.try_reactivate_if_complies())
         .or_else(|| state.try_unstake_from_inactive_validator())
         // Collecting validator fees goes after updating the exchange rate,
         // because it may be rejected if the exchange rate is outdated.
         // Same for updating the validator balance.
         .or_else(|| state.try_update_stake_account_balance())
-        .or_else(|| state.try_deactivate_validator_if_commission_exceeds_max())
+        .or_else(|| state.try_deactivate_if_violates())
         .or_else(|| state.try_stake_deposit())
         .or_else(|| state.try_unstake_from_active_validators())
-        .or_else(|| state.try_remove_validator());
+        .or_else(|| state.try_remove_pending_validators());
 
     match instruction_output {
         Some(maintenance_instruction) => {
@@ -1560,6 +1828,8 @@ mod test {
             validator_vote_account_balances: vec![],
             validator_vote_accounts: vec![],
             validator_identity_account_balances: vec![],
+            validator_perfs: vec![],
+            validator_block_production_rates: vec![],
             validator_infos: vec![],
             maintainer_balances: vec![],
             st_sol_mint: Mint::default(),

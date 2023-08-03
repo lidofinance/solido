@@ -1,6 +1,7 @@
 use snapshot::SnapshotError;
 
 pub mod error;
+pub mod per64;
 pub mod prometheus;
 pub mod snapshot;
 pub mod validator_info_utils;

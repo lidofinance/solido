@@ -6,16 +6,16 @@ use solana_program::rent::Rent;
 use solana_program::sysvar::Sysvar;
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, msg, pubkey::Pubkey};
 
-use crate::logic::check_rent_exempt;
+use crate::logic::{check_rent_exempt, does_perform_well};
 use crate::processor::StakeType;
-use crate::state::Lido;
+use crate::state::{Criteria, Lido, ValidatorPerf};
 use crate::vote_state::PartialVoteState;
 use crate::{
     error::LidoError,
     instruction::{
-        AddMaintainerInfoV2, AddValidatorInfoV2, ChangeRewardDistributionInfo,
-        DeactivateValidatorIfCommissionExceedsMaxInfo, DeactivateValidatorInfoV2, MergeStakeInfoV2,
-        RemoveMaintainerInfoV2, RemoveValidatorInfoV2, SetMaxValidationCommissionInfo,
+        AddMaintainerInfoV2, AddValidatorInfoV2, ChangeCriteriaInfo, ChangeRewardDistributionInfo,
+        DeactivateIfViolatesInfo, DeactivateValidatorInfoV2, MergeStakeInfoV2,
+        RemoveMaintainerInfoV2, RemoveValidatorInfoV2,
     },
     state::{ListEntry, Maintainer, RewardDistribution, Validator},
     vote_state::get_vote_account_commission,
@@ -57,7 +57,7 @@ pub fn process_add_validator(program_id: &Pubkey, accounts_raw: &[AccountInfo]) 
     // satisfy the commission limit.
     let _partial_vote_state = PartialVoteState::deserialize(
         accounts.validator_vote_account,
-        lido.max_commission_percentage,
+        lido.criteria.max_commission,
     )?;
 
     let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
@@ -102,6 +102,37 @@ pub fn process_remove_validator(
     Ok(())
 }
 
+/// Enqueue a validator for removal.
+///
+/// This deactivates the validator as well, so that no new funds can be staked
+/// with it. Once the validator has no more stake delegated to it, it can be
+/// removed from the list by calling `RemoveValidator`.
+pub fn process_enqueue_validator_for_removal(
+    program_id: &Pubkey,
+    validator_index: u32,
+    accounts_raw: &[AccountInfo],
+) -> ProgramResult {
+    let accounts = DeactivateValidatorInfoV2::try_from_slice(accounts_raw)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+    lido.check_manager(accounts.manager)?;
+
+    let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
+    let mut validators = lido.deserialize_account_list_info::<Validator>(
+        program_id,
+        accounts.validator_list,
+        validator_list_data,
+    )?;
+
+    let validator = validators.get_mut(
+        validator_index,
+        accounts.validator_vote_account_to_deactivate.key,
+    )?;
+
+    validator.enqueue_for_removal();
+    msg!("Validator {} enqueued for removal.", validator.pubkey());
+    Ok(())
+}
+
 /// Set the `active` flag to false for a given validator.
 ///
 /// This prevents new funds from being staked with this validator, and enables
@@ -127,23 +158,29 @@ pub fn process_deactivate_validator(
         accounts.validator_vote_account_to_deactivate.key,
     )?;
 
-    validator.active = false;
+    validator.deactivate();
     msg!("Validator {} deactivated.", validator.pubkey());
     Ok(())
 }
 
-/// Mark validator inactive if it's commission is bigger then max
-/// allowed or if it's vote account is closed. It is permissionless.
+/// Mark a validator inactive if any of their performance metrics exceeds the
+/// allowed range of values.
 ///
 /// This prevents new funds from being staked with this validator, and enables
-/// removing the validator once no stake is delegated to it any more.
-pub fn process_deactivate_validator_if_commission_exceeds_max(
+/// removing the validator once no stake is delegated to it anymore.
+pub fn process_deactivate_if_violates(
     program_id: &Pubkey,
-    validator_index: u32,
     accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
-    let accounts = DeactivateValidatorIfCommissionExceedsMaxInfo::try_from_slice(accounts_raw)?;
+    let accounts = DeactivateIfViolatesInfo::try_from_slice(accounts_raw)?;
     let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
 
     let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
     let mut validators = lido.deserialize_account_list_info::<Validator>(
@@ -152,28 +189,124 @@ pub fn process_deactivate_validator_if_commission_exceeds_max(
         validator_list_data,
     )?;
 
-    let validator = validators.get_mut(
-        validator_index,
-        accounts.validator_vote_account_to_deactivate.key,
-    )?;
+    // Find the validator in the list of validators.
+    let validator = validators
+        .iter_mut()
+        .find(|validator| validator.pubkey() == accounts.validator_vote_account_to_deactivate.key);
+    let validator = match validator {
+        Some(validator) => validator,
+        None => {
+            msg!(
+                "No such validator: {}.",
+                accounts.validator_vote_account_to_deactivate.key
+            );
+            return Err(LidoError::InvalidAccountInfo.into());
+        }
+    };
 
-    if !validator.active {
+    // Nothing to do if the validator is already inactive.
+    if !validator.is_active() {
         return Ok(());
     }
 
-    if accounts.validator_vote_account_to_deactivate.owner == &solana_program::vote::program::id() {
+    let should_deactivate = if accounts.validator_vote_account_to_deactivate.owner
+        == &solana_program::vote::program::id()
+    {
+        // Find the validator's performance metrics.
+        let validator_perf = validator_perfs.iter().find(|perf| {
+            &perf.validator_vote_account_address
+                == accounts.validator_vote_account_to_deactivate.key
+        });
+
+        // And its commission.
         let data = accounts.validator_vote_account_to_deactivate.data.borrow();
         let commission = get_vote_account_commission(&data)?;
 
-        if commission <= lido.max_commission_percentage {
-            return Ok(());
-        }
+        // If the validator does not perform well, deactivate it.
+        !does_perform_well(&lido.criteria, commission, validator_perf)
     } else {
-        // The vote account is closed by node operator
+        // The vote account is closed by node operator.
+        true
+    };
+    if !should_deactivate {
+        return Ok(());
     }
 
-    validator.active = false;
+    validator.deactivate();
     msg!("Validator {} deactivated.", validator.pubkey());
+
+    Ok(())
+}
+
+/// If necessary, reactivate a validator that was deactivated by
+/// `DeactivateIfViolates`.
+pub fn process_reactivate_if_complies(
+    program_id: &Pubkey,
+    accounts_raw: &[AccountInfo],
+) -> ProgramResult {
+    let accounts = DeactivateIfViolatesInfo::try_from_slice(accounts_raw)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
+
+    let validator_list_data = &mut *accounts.validator_list.data.borrow_mut();
+    let mut validators = lido.deserialize_account_list_info::<Validator>(
+        program_id,
+        accounts.validator_list,
+        validator_list_data,
+    )?;
+
+    // Find the validator in the list of validators.
+    let validator = validators
+        .iter_mut()
+        .find(|validator| validator.pubkey() == accounts.validator_vote_account_to_deactivate.key);
+    let validator = match validator {
+        Some(validator) => validator,
+        None => {
+            msg!(
+                "No such validator: {}.",
+                accounts.validator_vote_account_to_deactivate.key
+            );
+            return Err(LidoError::InvalidAccountInfo.into());
+        }
+    };
+
+    // Nothing to do if the validator is already active.
+    if validator.is_active() {
+        return Ok(());
+    }
+
+    let should_be_inactive = if accounts.validator_vote_account_to_deactivate.owner
+        == &solana_program::vote::program::id()
+    {
+        // Find the validator's performance metrics.
+        let validator_perf = validator_perfs.iter().find(|perf| {
+            &perf.validator_vote_account_address
+                == accounts.validator_vote_account_to_deactivate.key
+        });
+
+        // And its commission.
+        let data = accounts.validator_vote_account_to_deactivate.data.borrow();
+        let commission = get_vote_account_commission(&data)?;
+
+        // If the validator does not perform well, deactivate it.
+        !does_perform_well(&lido.criteria, commission, validator_perf)
+    } else {
+        // The vote account is closed by node operator.
+        true
+    };
+    if should_be_inactive {
+        // Does not comply with the criteria, so do not reactivate.
+        return Ok(());
+    }
+
+    validator.activate();
+    msg!("Validator {} activated back.", validator.pubkey());
 
     Ok(())
 }
@@ -215,23 +348,23 @@ pub fn process_remove_maintainer(
     Ok(())
 }
 
-/// Sets max validation commission for Lido. If validators exeed the threshold
-/// they will be deactivated by DeactivateValidatorIfCommissionExceedsMax
-pub fn process_set_max_commission_percentage(
+/// Set the new curation criteria. If validators exceed those thresholds,
+/// they will be deactivated by `DeactivateIfViolates`.
+pub fn process_change_criteria(
     program_id: &Pubkey,
-    max_commission_percentage: u8,
+    new_criteria: Criteria,
     accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
-    if max_commission_percentage > 100 {
+    if new_criteria.max_commission > 100 {
         return Err(LidoError::ValidationCommissionOutOfBounds.into());
     }
 
-    let accounts = SetMaxValidationCommissionInfo::try_from_slice(accounts_raw)?;
+    let accounts = ChangeCriteriaInfo::try_from_slice(accounts_raw)?;
     let mut lido = Lido::deserialize_lido(program_id, accounts.lido)?;
 
     lido.check_manager(accounts.manager)?;
 
-    lido.max_commission_percentage = max_commission_percentage;
+    lido.criteria = new_criteria;
 
     lido.save(accounts.lido)
 }

@@ -4,6 +4,7 @@ description = "Solido Command-line Utility"
 license = "GPL-3.0"
 edition = "2018"
 name = "solido-cli"
+default-run = "solido"
 version = "1.3.6"
 
 [dependencies]

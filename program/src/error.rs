@@ -200,6 +200,9 @@ pub enum LidoError {
 
     /// The reserve account address is wrong
     IncorrectReserveAddress = 58,
+
+    /// Performance data was already updated for the epoch
+    ValidatorPerfAlreadyUpdatedForEpoch = 59,
 }
 
 // Just reuse the generated Debug impl for Display. It shows the variant names.

@@ -10,6 +10,7 @@ use crate::{
     instruction::{
         DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV2Info,
         StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateExchangeRateAccountsInfoV2,
+        UpdateOffchainValidatorPerfAccountsInfo, UpdateOnchainValidatorPerfAccountsInfo,
         UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
     },
     logic::{
@@ -20,17 +21,19 @@ use crate::{
     },
     metrics::Metrics,
     process_management::{
-        process_add_maintainer, process_add_validator, process_change_reward_distribution,
-        process_deactivate_validator, process_deactivate_validator_if_commission_exceeds_max,
-        process_merge_stake, process_remove_maintainer, process_remove_validator,
-        process_set_max_commission_percentage,
+        process_add_maintainer, process_add_validator, process_change_criteria,
+        process_change_reward_distribution, process_deactivate_if_violates,
+        process_deactivate_validator, process_enqueue_validator_for_removal, process_merge_stake,
+        process_reactivate_if_complies, process_remove_maintainer, process_remove_validator,
     },
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
-        AccountType, ExchangeRate, FeeRecipients, Lido, LidoV1, ListEntry, Maintainer,
-        MaintainerList, RewardDistribution, StakeDeposit, Validator, ValidatorList,
+        AccountType, Criteria, ExchangeRate, FeeRecipients, Lido, LidoV1, ListEntry, Maintainer,
+        MaintainerList, OffchainValidatorPerf, RewardDistribution, StakeDeposit, Validator,
+        ValidatorList, ValidatorPerf, ValidatorPerfList,
     },
     token::{Lamports, Rational, StLamports},
+    vote_state::get_vote_account_commission,
     MAXIMUM_UNSTAKE_ACCOUNTS, MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT,
     STAKE_AUTHORITY, VALIDATOR_STAKE_ACCOUNT, VALIDATOR_UNSTAKE_ACCOUNT,
 };
@@ -58,9 +61,9 @@ use {
 pub fn process_initialize(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
+    criteria: Criteria,
     max_validators: u32,
     max_maintainers: u32,
-    max_commission_percentage: u8,
     accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
     let accounts = InitializeAccountsInfo::try_from_slice(accounts_raw)?;
@@ -68,10 +71,12 @@ pub fn process_initialize(
     check_rent_exempt(rent, accounts.lido, "Solido account")?;
     check_rent_exempt(rent, accounts.reserve_account, "Reserve account")?;
     check_rent_exempt(rent, accounts.validator_list, "Validator list account")?;
+    check_rent_exempt(rent, accounts.validator_perf_list, "Perf list account")?;
     check_rent_exempt(rent, accounts.maintainer_list, "Maintainer list account")?;
 
     check_account_owner(accounts.lido, program_id)?;
     check_account_owner(accounts.validator_list, program_id)?;
+    check_account_owner(accounts.validator_perf_list, program_id)?;
     check_account_owner(accounts.maintainer_list, program_id)?;
 
     check_account_data(accounts.lido, Lido::LEN, AccountType::Lido)?;
@@ -79,6 +84,11 @@ pub fn process_initialize(
         accounts.validator_list,
         ValidatorList::required_bytes(max_validators),
         AccountType::Validator,
+    )?;
+    check_account_data(
+        accounts.validator_perf_list,
+        ValidatorPerfList::required_bytes(max_validators),
+        AccountType::ValidatorPerf,
     )?;
     check_account_data(
         accounts.maintainer_list,
@@ -102,6 +112,9 @@ pub fn process_initialize(
     let mut validators = ValidatorList::new_default(0);
     validators.header.max_entries = max_validators;
 
+    let mut validator_perf = ValidatorPerfList::new_default(0);
+    validator_perf.header.max_entries = max_validators;
+
     let mut maintainers = MaintainerList::new_default(0);
     maintainers.header.max_entries = max_maintainers;
 
@@ -111,7 +124,7 @@ pub fn process_initialize(
     );
     if &reserve_account_pda != accounts.reserve_account.key {
         msg!(
-            "Resrve account {} is incorrect, should be {}",
+            "Reserve account {} is incorrect, should be {}",
             accounts.reserve_account.key,
             reserve_account_pda
         );
@@ -128,7 +141,7 @@ pub fn process_initialize(
     // Check if the token has no minted tokens and right mint authority.
     check_mint(rent, accounts.st_sol_mint, &mint_authority)?;
 
-    if max_commission_percentage > 100 {
+    if criteria.max_commission > 100 {
         return Err(LidoError::ValidationCommissionOutOfBounds.into());
     }
 
@@ -148,9 +161,10 @@ pub fn process_initialize(
             developer_account: *accounts.developer_account.key,
         },
         metrics: Metrics::new(),
+        criteria,
         validator_list: *accounts.validator_list.key,
+        validator_perf_list: *accounts.validator_perf_list.key,
         maintainer_list: *accounts.maintainer_list.key,
-        max_commission_percentage,
     };
 
     // Confirm that the fee recipients are actually stSOL accounts.
@@ -158,6 +172,7 @@ pub fn process_initialize(
     lido.check_is_st_sol_account(accounts.developer_account)?;
 
     validators.save(accounts.validator_list)?;
+    validator_perf.save(accounts.validator_perf_list)?;
     maintainers.save(accounts.maintainer_list)?;
     lido.save(accounts.lido)
 }
@@ -246,7 +261,7 @@ pub fn process_stake_deposit(
     // the same StakeDeposit transaction, only one of them succeeds.
     let minimum_stake_validator = validators
         .iter()
-        .filter(|&v| v.active)
+        .filter(|&v| v.is_active())
         .min_by_key(|v| v.effective_stake_balance)
         .ok_or(LidoError::NoActiveValidators)?;
     let minimum_stake_pubkey = *minimum_stake_validator.pubkey();
@@ -254,7 +269,7 @@ pub fn process_stake_deposit(
 
     let validator = validators.get_mut(validator_index, accounts.validator_vote_account.key)?;
 
-    if !validator.active {
+    if !validator.is_active() {
         msg!(
             "Validator {} is inactive, new deposits are not allowed",
             validator.pubkey()
@@ -542,7 +557,7 @@ pub fn process_unstake(
         ]],
     )?;
 
-    if validator.active {
+    if validator.is_active() {
         // For active validators, we don't allow their stake accounts to contain
         // less than the minimum stake account balance.
         let new_source_balance = (source_balance - amount)?;
@@ -612,6 +627,131 @@ pub fn process_update_exchange_rate(
     lido.exchange_rate.st_sol_supply = lido.get_st_sol_supply(accounts.st_sol_mint)?;
 
     lido.save(accounts.lido)
+}
+
+/// Mutably get the existing perf for the validator, or create a new one.
+fn perf_for<'vec>(
+    validator_vote_account_address: &Pubkey,
+    validator_perfs: &'vec mut crate::state::BigVecWithHeader<'vec, ValidatorPerf>,
+) -> Result<&'vec mut ValidatorPerf, ProgramError> {
+    let index = validator_perfs
+        .iter()
+        .position(|perf| &perf.validator_vote_account_address == validator_vote_account_address);
+    let element = match index {
+        None => {
+            let validator_vote_account_address = validator_vote_account_address.to_owned();
+            validator_perfs.push(ValidatorPerf {
+                validator_vote_account_address,
+                ..Default::default()
+            })?;
+            validator_perfs.iter_mut().last().unwrap()
+        }
+        Some(index) => validator_perfs.get_mut(index as u32, validator_vote_account_address)?,
+    };
+    Ok(element)
+}
+
+/// Update the off-chain part of the validator performance metrics.
+pub fn process_update_offchain_validator_perf(
+    program_id: &Pubkey,
+    block_production_rate: u64,
+    vote_success_rate: u64,
+    raw_accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts = UpdateOffchainValidatorPerfAccountsInfo::try_from_slice(raw_accounts)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let validator_vote_account_address = *accounts.validator_vote_account_to_update.key;
+
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let mut validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
+
+    let mut perf = perf_for(&validator_vote_account_address, &mut validator_perfs)?;
+
+    let data = accounts.validator_vote_account_to_update.data.borrow();
+    let commission = get_vote_account_commission(&data)?;
+
+    // Update could happen at most once per epoch:
+    let clock = Clock::get()?;
+    if perf
+        .rest
+        .as_ref()
+        .map_or(false, |rest| rest.updated_at >= clock.epoch)
+    {
+        msg!(
+            "The perf was already updated in epoch {}.",
+            perf.rest.as_ref().unwrap().updated_at
+        );
+        msg!("It can only be done once per epoch, so we are going to abort this transaction.");
+        return Err(LidoError::ValidatorPerfAlreadyUpdatedForEpoch.into());
+    }
+
+    perf.rest = Some(OffchainValidatorPerf {
+        updated_at: clock.epoch,
+        block_production_rate,
+        vote_success_rate,
+    });
+
+    msg!(
+        "Validator {} gets new perf: commission={}, block_production_rate={}, vote_success_rate={}",
+        validator_vote_account_address,
+        commission,
+        block_production_rate,
+        vote_success_rate,
+    );
+
+    Ok(())
+}
+
+/// Update the on-chain part of the validator performance metrics.
+pub fn process_update_onchain_validator_perf(
+    program_id: &Pubkey,
+    raw_accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts = UpdateOnchainValidatorPerfAccountsInfo::try_from_slice(raw_accounts)?;
+    let lido = Lido::deserialize_lido(program_id, accounts.lido)?;
+
+    let validator_vote_account_address = *accounts.validator_vote_account_to_update.key;
+
+    let validator_perf_list_data = &mut *accounts.validator_perf_list.data.borrow_mut();
+    let mut validator_perfs = lido.deserialize_account_list_info::<ValidatorPerf>(
+        program_id,
+        accounts.validator_perf_list,
+        validator_perf_list_data,
+    )?;
+
+    let mut perf = perf_for(&validator_vote_account_address, &mut validator_perfs)?;
+
+    let data = accounts.validator_vote_account_to_update.data.borrow();
+    let commission = get_vote_account_commission(&data)?;
+
+    // Update could happen at most once per epoch, or if the commission worsened:
+    let clock = Clock::get()?;
+    let current_expired = perf.commission_updated_at < clock.epoch;
+    let new_exceeds_max = commission > lido.criteria.max_commission && commission > perf.commission;
+    let should_update = new_exceeds_max || current_expired;
+    if !should_update {
+        msg!(
+            "The commission was already updated in epoch {}.",
+            perf.commission_updated_at
+        );
+        msg!("It can only be done once per epoch, so we are going to abort this transaction.");
+        return Err(LidoError::ValidatorPerfAlreadyUpdatedForEpoch.into());
+    }
+
+    perf.commission_updated_at = clock.epoch;
+    perf.commission = commission;
+    msg!(
+        "Validator {} gets new commission in their perf: commission={}",
+        validator_vote_account_address,
+        commission
+    );
+
+    Ok(())
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -1034,7 +1174,7 @@ pub fn process_withdraw(
 }
 
 /// Migrate Solido state to version 2
-pub fn processor_migrate_to_v2(
+pub fn process_migrate_to_v2(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
     max_validators: u32,
@@ -1052,15 +1192,22 @@ pub fn processor_migrate_to_v2(
 
     let rent = &Rent::get()?;
     check_rent_exempt(rent, accounts.validator_list, "Validator list account")?;
+    check_rent_exempt(rent, accounts.validator_perf_list, "Perf list account")?;
     check_rent_exempt(rent, accounts.maintainer_list, "Maintainer list account")?;
 
     check_account_owner(accounts.validator_list, program_id)?;
+    check_account_owner(accounts.validator_perf_list, program_id)?;
     check_account_owner(accounts.maintainer_list, program_id)?;
 
     check_account_data(
         accounts.validator_list,
         ValidatorList::required_bytes(max_validators),
         AccountType::Validator,
+    )?;
+    check_account_data(
+        accounts.validator_perf_list,
+        ValidatorPerfList::required_bytes(max_validators),
+        AccountType::ValidatorPerf,
     )?;
     check_account_data(
         accounts.maintainer_list,
@@ -1107,14 +1254,13 @@ pub fn processor_migrate_to_v2(
         lido_version: Lido::VERSION,
         account_type: AccountType::Lido,
         validator_list: *accounts.validator_list.key,
+        validator_perf_list: *accounts.validator_perf_list.key,
         maintainer_list: *accounts.maintainer_list.key,
-        max_commission_percentage,
         fee_recipients: FeeRecipients {
             treasury_account: lido_v1.fee_recipients.treasury_account,
             developer_account: *accounts.developer_account.key,
         },
         reward_distribution,
-
         manager: lido_v1.manager,
         st_sol_mint: lido_v1.st_sol_mint,
         exchange_rate: lido_v1.exchange_rate,
@@ -1122,6 +1268,7 @@ pub fn processor_migrate_to_v2(
         mint_authority_bump_seed: lido_v1.mint_authority_bump_seed,
         stake_authority_bump_seed: lido_v1.stake_authority_bump_seed,
         metrics: lido_v1.metrics,
+        criteria: Criteria::default(),
     };
 
     // Confirm that the fee recipients are actually stSOL accounts.
@@ -1138,15 +1285,15 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
     match instruction {
         LidoInstruction::Initialize {
             reward_distribution,
+            criteria,
             max_validators,
             max_maintainers,
-            max_commission_percentage,
         } => process_initialize(
             program_id,
             reward_distribution,
+            criteria,
             max_validators,
             max_maintainers,
-            max_commission_percentage,
             accounts,
         ),
         LidoInstruction::Deposit { amount } => process_deposit(program_id, amount, accounts),
@@ -1176,6 +1323,18 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::UpdateStakeAccountBalance { validator_index } => {
             process_update_stake_account_balance(program_id, validator_index, accounts)
         }
+        LidoInstruction::UpdateOffchainValidatorPerf {
+            block_production_rate,
+            vote_success_rate,
+        } => process_update_offchain_validator_perf(
+            program_id,
+            block_production_rate,
+            vote_success_rate,
+            accounts,
+        ),
+        LidoInstruction::UpdateOnchainValidatorPerf => {
+            process_update_onchain_validator_perf(program_id, accounts)
+        }
         LidoInstruction::WithdrawV2 {
             amount,
             validator_index,
@@ -1184,6 +1343,9 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
             new_reward_distribution,
         } => process_change_reward_distribution(program_id, new_reward_distribution, accounts),
         LidoInstruction::AddValidatorV2 => process_add_validator(program_id, accounts),
+        LidoInstruction::EnqueueValidatorForRemovalV2 { validator_index } => {
+            process_enqueue_validator_for_removal(program_id, validator_index, accounts)
+        }
         LidoInstruction::RemoveValidatorV2 { validator_index } => {
             process_remove_validator(program_id, validator_index, accounts)
         }
@@ -1197,22 +1359,21 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::MergeStakeV2 { validator_index } => {
             process_merge_stake(program_id, validator_index, accounts)
         }
-        LidoInstruction::DeactivateValidatorIfCommissionExceedsMax { validator_index } => {
-            process_deactivate_validator_if_commission_exceeds_max(
-                program_id,
-                validator_index,
-                accounts,
-            )
+        LidoInstruction::DeactivateIfViolates => {
+            process_deactivate_if_violates(program_id, accounts)
         }
-        LidoInstruction::SetMaxValidationCommission {
-            max_commission_percentage,
-        } => process_set_max_commission_percentage(program_id, max_commission_percentage, accounts),
+        LidoInstruction::ReactivateIfComplies => {
+            process_reactivate_if_complies(program_id, accounts)
+        }
+        LidoInstruction::ChangeCriteria { new_criteria } => {
+            process_change_criteria(program_id, new_criteria, accounts)
+        }
         LidoInstruction::MigrateStateToV2 {
             reward_distribution,
             max_validators,
             max_maintainers,
             max_commission_percentage,
-        } => processor_migrate_to_v2(
+        } => process_migrate_to_v2(
             program_id,
             reward_distribution,
             max_validators,

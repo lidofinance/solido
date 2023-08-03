@@ -16,9 +16,5 @@ fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    if let Err(error) = processor::process(program_id, accounts, instruction_data) {
-        Err(error)
-    } else {
-        Ok(())
-    }
+    processor::process(program_id, accounts, instruction_data)
 }

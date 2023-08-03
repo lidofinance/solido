@@ -21,7 +21,6 @@ use solana_program::{
     program_error::ProgramError,
     program_memory::sol_memcmp,
     program_pack::Pack,
-    program_pack::Sealed,
     pubkey::{Pubkey, PUBKEY_BYTES},
     rent::Rent,
     sysvar::Sysvar,
@@ -32,13 +31,18 @@ use crate::big_vec::BigVec;
 use crate::error::LidoError;
 use crate::logic::{check_account_owner, get_reserve_available_balance};
 use crate::metrics::Metrics;
-use crate::processor::StakeType;
 use crate::token::{self, Lamports, Rational, StLamports};
 use crate::util::serialize_b58;
-use crate::{
-    MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT, STAKE_AUTHORITY,
-    VALIDATOR_STAKE_ACCOUNT, VALIDATOR_UNSTAKE_ACCOUNT,
-};
+use crate::{MINIMUM_STAKE_ACCOUNT_BALANCE, MINT_AUTHORITY, RESERVE_ACCOUNT, STAKE_AUTHORITY};
+
+mod validator;
+pub use validator::{Validator, ValidatorStatus};
+
+mod validator_perf;
+pub use validator_perf::{Criteria, OffchainValidatorPerf, ValidatorPerf};
+
+mod maintainer;
+pub use maintainer::Maintainer;
 
 /// Types of list entries
 /// Uninitialized should always be a first enum field as it catches empty list data errors
@@ -48,6 +52,7 @@ pub enum AccountType {
     Uninitialized,
     Lido,
     Validator,
+    ValidatorPerf,
     Maintainer,
 }
 
@@ -74,6 +79,7 @@ pub struct AccountList<T> {
 }
 
 pub type ValidatorList = AccountList<Validator>;
+pub type ValidatorPerfList = AccountList<ValidatorPerf>;
 pub type MaintainerList = AccountList<Maintainer>;
 
 /// Helper type to deserialize just the start of AccountList
@@ -222,6 +228,10 @@ impl<'data, T: ListEntry> BigVecWithHeader<'data, T> {
         self.big_vec.iter()
     }
 
+    pub fn iter_mut(&'data mut self) -> impl Iterator<Item = &'data mut T> {
+        self.big_vec.iter_mut()
+    }
+
     pub fn find(&'data self, pubkey: &Pubkey) -> Result<&'data T, LidoError> {
         self.big_vec
             .find(&pubkey.to_bytes(), T::memcmp_pubkey)
@@ -310,244 +320,7 @@ impl<T: ListEntry> ListHeader<T> {
 
 impl ValidatorList {
     pub fn iter_active(&self) -> impl Iterator<Item = &Validator> {
-        self.entries.iter().filter(|&v| v.active)
-    }
-}
-
-/// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
-/// THERE'S AN EXTREMELY GOOD REASON.
-///
-/// To save on BPF instructions, the serialized bytes are reinterpreted with an
-/// unsafe pointer cast, which means that this structure cannot have any
-/// undeclared alignment-padding in its representation.
-#[repr(C)]
-#[derive(Clone, Debug, Eq, PartialEq, BorshDeserialize, BorshSerialize, BorshSchema, Serialize)]
-pub struct Validator {
-    /// Validator vote account address.
-    /// Do not reorder this field, it should be first in the struct
-    #[serde(serialize_with = "serialize_b58")]
-    #[serde(rename = "pubkey")]
-    pub vote_account_address: Pubkey,
-
-    /// Seeds for active stake accounts.
-    pub stake_seeds: SeedRange,
-    /// Seeds for inactive stake accounts.
-    pub unstake_seeds: SeedRange,
-
-    /// Sum of the balances of the stake accounts and unstake accounts.
-    pub stake_accounts_balance: Lamports,
-
-    /// Sum of the balances of the unstake accounts.
-    pub unstake_accounts_balance: Lamports,
-
-    /// Effective stake balance is stake_accounts_balance - unstake_accounts_balance.
-    /// The result is stored on-chain to optimize compute budget
-    pub effective_stake_balance: Lamports,
-
-    /// Controls if a validator is allowed to have new stake deposits.
-    /// When removing a validator, this flag should be set to `false`.
-    pub active: bool,
-}
-
-/// NOTE: ORDER IS VERY IMPORTANT HERE, PLEASE DO NOT RE-ORDER THE FIELDS UNLESS
-/// THERE'S AN EXTREMELY GOOD REASON.
-///
-/// To save on BPF instructions, the serialized bytes are reinterpreted with an
-/// unsafe pointer cast, which means that this structure cannot have any
-/// undeclared alignment-padding in its representation.
-#[repr(C)]
-#[derive(
-    Clone, Default, Debug, Eq, PartialEq, BorshDeserialize, BorshSerialize, BorshSchema, Serialize,
-)]
-pub struct Maintainer {
-    /// Address of maintainer account.
-    /// Do not reorder this field, it should be first in the struct
-    #[serde(serialize_with = "serialize_b58")]
-    pub pubkey: Pubkey,
-}
-
-impl Validator {
-    /// Return the balance in only the stake accounts, excluding the unstake accounts.
-    pub fn compute_effective_stake_balance(&self) -> Lamports {
-        (self.stake_accounts_balance - self.unstake_accounts_balance)
-            .expect("Unstake balance cannot exceed the validator's total stake balance.")
-    }
-
-    pub fn observe_balance(observed: Lamports, tracked: Lamports, info: &str) -> ProgramResult {
-        if observed < tracked {
-            msg!(
-                "{}: observed balance of {} is less than tracked balance of {}.",
-                info,
-                observed,
-                tracked
-            );
-            msg!("This should not happen, aborting ...");
-            return Err(LidoError::ValidatorBalanceDecreased.into());
-        }
-        Ok(())
-    }
-
-    pub fn has_stake_accounts(&self) -> bool {
-        self.stake_seeds.begin != self.stake_seeds.end
-    }
-    pub fn has_unstake_accounts(&self) -> bool {
-        self.unstake_seeds.begin != self.unstake_seeds.end
-    }
-
-    pub fn check_can_be_removed(&self) -> Result<(), LidoError> {
-        if self.active {
-            return Err(LidoError::ValidatorIsStillActive);
-        }
-        if self.has_stake_accounts() {
-            return Err(LidoError::ValidatorShouldHaveNoStakeAccounts);
-        }
-        if self.has_unstake_accounts() {
-            return Err(LidoError::ValidatorShouldHaveNoUnstakeAccounts);
-        }
-        // If not, this is a bug.
-        assert_eq!(self.stake_accounts_balance, Lamports(0));
-        Ok(())
-    }
-
-    pub fn show_removed_error_msg(error: &Result<(), LidoError>) {
-        if let Err(err) = error {
-            match err {
-                LidoError::ValidatorIsStillActive => {
-                    msg!(
-                                "Refusing to remove validator because it is still active, deactivate it first."
-                            );
-                }
-                LidoError::ValidatorHasUnclaimedCredit => {
-                    msg!(
-                        "Validator still has tokens to claim. Reclaim tokens before removing the validator"
-                    );
-                }
-                LidoError::ValidatorShouldHaveNoStakeAccounts => {
-                    msg!("Refusing to remove validator because it still has stake accounts, unstake them first.");
-                }
-                LidoError::ValidatorShouldHaveNoUnstakeAccounts => {
-                    msg!("Refusing to remove validator because it still has unstake accounts, withdraw them first.");
-                }
-                _ => {
-                    msg!("Invalid error when removing a validator: shouldn't happen.");
-                }
-            }
-        }
-    }
-
-    pub fn find_stake_account_address_with_authority(
-        &self,
-        program_id: &Pubkey,
-        solido_account: &Pubkey,
-        authority: &[u8],
-        seed: u64,
-    ) -> (Pubkey, u8) {
-        let seeds = [
-            &solido_account.to_bytes(),
-            &self.vote_account_address.to_bytes(),
-            authority,
-            &seed.to_le_bytes()[..],
-        ];
-        Pubkey::find_program_address(&seeds, program_id)
-    }
-
-    pub fn find_stake_account_address(
-        &self,
-        program_id: &Pubkey,
-        solido_account: &Pubkey,
-        seed: u64,
-        stake_type: StakeType,
-    ) -> (Pubkey, u8) {
-        let authority = match stake_type {
-            StakeType::Stake => VALIDATOR_STAKE_ACCOUNT,
-            StakeType::Unstake => VALIDATOR_UNSTAKE_ACCOUNT,
-        };
-        self.find_stake_account_address_with_authority(program_id, solido_account, authority, seed)
-    }
-
-    /// Get stake account address that should be merged into another right after creation.
-    /// This function should be used to create temporary stake accounts
-    /// tied to the epoch that should be merged into another account and destroyed
-    /// after a transaction. So that each epoch would have a diferent
-    /// generation of stake accounts. This is done for security purpose
-    pub fn find_temporary_stake_account_address(
-        &self,
-        program_id: &Pubkey,
-        solido_account: &Pubkey,
-        seed: u64,
-        epoch: Epoch,
-    ) -> (Pubkey, u8) {
-        let authority = [VALIDATOR_STAKE_ACCOUNT, &epoch.to_le_bytes()[..]].concat();
-        self.find_stake_account_address_with_authority(program_id, solido_account, &authority, seed)
-    }
-}
-
-impl Sealed for Validator {}
-
-impl Pack for Validator {
-    const LEN: usize = 89;
-    fn pack_into_slice(&self, data: &mut [u8]) {
-        let mut data = data;
-        BorshSerialize::serialize(&self, &mut data).unwrap();
-    }
-    fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let unpacked = Self::try_from_slice(src)?;
-        Ok(unpacked)
-    }
-}
-
-impl Default for Validator {
-    fn default() -> Self {
-        Validator {
-            stake_seeds: SeedRange { begin: 0, end: 0 },
-            unstake_seeds: SeedRange { begin: 0, end: 0 },
-            stake_accounts_balance: Lamports(0),
-            unstake_accounts_balance: Lamports(0),
-            effective_stake_balance: Lamports(0),
-            active: true,
-            vote_account_address: Pubkey::default(),
-        }
-    }
-}
-
-impl ListEntry for Validator {
-    const TYPE: AccountType = AccountType::Validator;
-
-    fn new(vote_account_address: Pubkey) -> Self {
-        Self {
-            vote_account_address,
-            ..Default::default()
-        }
-    }
-
-    fn pubkey(&self) -> &Pubkey {
-        &self.vote_account_address
-    }
-}
-
-impl Sealed for Maintainer {}
-
-impl Pack for Maintainer {
-    const LEN: usize = PUBKEY_BYTES;
-    fn pack_into_slice(&self, data: &mut [u8]) {
-        let mut data = data;
-        BorshSerialize::serialize(&self, &mut data).unwrap();
-    }
-    fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let unpacked = Self::try_from_slice(src)?;
-        Ok(unpacked)
-    }
-}
-
-impl ListEntry for Maintainer {
-    const TYPE: AccountType = AccountType::Maintainer;
-
-    fn new(pubkey: Pubkey) -> Self {
-        Self { pubkey }
-    }
-
-    fn pubkey(&self) -> &Pubkey {
-        &self.pubkey
+        self.entries.iter().filter(|&v| v.is_active())
     }
 }
 
@@ -714,9 +487,17 @@ pub struct Lido {
     /// these metrics.
     pub metrics: Metrics,
 
+    /// Metrics of validator's performance such that if a validator's metrics
+    /// do not meet that criteria, then the validator gets deactivated.
+    pub criteria: Criteria,
+
     /// Validator list account
     #[serde(serialize_with = "serialize_b58")]
     pub validator_list: Pubkey,
+
+    /// Validator performance readings account
+    #[serde(serialize_with = "serialize_b58")]
+    pub validator_perf_list: Pubkey,
 
     /// Maintainer list account
     ///
@@ -726,9 +507,6 @@ pub struct Lido {
     /// In the future we plan to make maintenance operations callable by anybody.
     #[serde(serialize_with = "serialize_b58")]
     pub maintainer_list: Pubkey,
-
-    /// Maximum validation commission percentage in [0, 100]
-    pub max_commission_percentage: u8,
 }
 
 impl Lido {
@@ -737,7 +515,7 @@ impl Lido {
     /// Size of a serialized `Lido` struct excluding validators and maintainers.
     ///
     /// To update this, run the tests and replace the value here with the test output.
-    pub const LEN: usize = 418;
+    pub const LEN: usize = 466;
 
     pub fn deserialize_lido(program_id: &Pubkey, lido: &AccountInfo) -> Result<Lido, ProgramError> {
         check_account_owner(lido, program_id)?;
@@ -765,7 +543,7 @@ impl Lido {
         get_instance_packed_len(&lido_instance).unwrap()
     }
 
-    /// Get maximum number of bytes over all Solido owned accounts, including previuos
+    /// Get maximum number of bytes over all Solido owned accounts, including previous
     /// versions, that should be checked to be zero to initialize Solido instance
     ///
     /// This is also done to avoid account confusion that could cause an old,
@@ -775,7 +553,7 @@ impl Lido {
             LidoV1::LEN,
             Lido::LEN,
             // it's enough to check only bytes for `a list of size 1` to be zero,
-            // otherwize the list won't be deserializable
+            // otherwise the list won't be deserializable
             ValidatorList::required_bytes(1),
             MaintainerList::required_bytes(1),
         ]
@@ -1148,6 +926,7 @@ impl Lido {
         let solido_list_address = match T::TYPE {
             AccountType::Validator => self.validator_list,
             AccountType::Maintainer => self.maintainer_list,
+            AccountType::ValidatorPerf => self.validator_perf_list,
             _ => {
                 msg!(
                     "Invalid account type {:?} when deserializing account list",
@@ -1492,9 +1271,10 @@ mod test_lido {
                 developer_account: Pubkey::new_unique(),
             },
             metrics: Metrics::new(),
+            criteria: Criteria::new(5, 0, 0),
             validator_list: Pubkey::new_unique(),
+            validator_perf_list: Pubkey::new_unique(),
             maintainer_list: Pubkey::new_unique(),
-            max_commission_percentage: 5,
         };
         let mut data = Vec::new();
         BorshSerialize::serialize(&lido, &mut data).unwrap();
@@ -1854,7 +1634,7 @@ mod test_lido {
         let mut buffer: Vec<u8> =
             vec![0; ValidatorList::required_bytes(accounts.header.max_entries)];
         let mut slice = &mut buffer[..];
-        // seriaslize empty list to buffer, which serializes a header and lenght
+        // serialize empty list to buffer, which serializes a header and length
         BorshSerialize::serialize(&accounts, &mut slice).unwrap();
 
         // deserialize to BigVec but with a different account type
@@ -1873,7 +1653,7 @@ mod test_lido {
         elem.vote_account_address = Pubkey::new_unique();
         elem.effective_stake_balance = Lamports(34453);
         elem.stake_accounts_balance = Lamports(234525);
-        elem.active = true;
+        elem.status = ValidatorStatus::AcceptingStakes;
 
         // allocate space for future elements
         let mut buffer: Vec<u8> =
@@ -1898,7 +1678,7 @@ mod test_lido {
             stake_accounts_balance: Lamports(1111),
             unstake_accounts_balance: Lamports(3333),
             effective_stake_balance: Lamports(3465468),
-            active: false,
+            status: ValidatorStatus::StakesSuspended,
         };
 
         accounts.entries.push(elem.clone());

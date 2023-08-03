@@ -12,6 +12,7 @@ use solana_program::{
 };
 
 use crate::processor::StakeType;
+use crate::state::{Criteria, ValidatorPerf};
 use crate::STAKE_AUTHORITY;
 use crate::{
     error::LidoError,
@@ -98,6 +99,15 @@ pub fn get_reserve_available_balance(
             Err(LidoError::ReserveIsNotRentExempt)
         }
     }
+}
+
+/// True only if the validator meets the criteria.
+pub fn does_perform_well(
+    criteria: &Criteria,
+    commission: u8,
+    perf: Option<&ValidatorPerf>,
+) -> bool {
+    perf.map_or(true, |perf| perf.meets_criteria(criteria)) && commission <= criteria.max_commission
 }
 
 pub struct CreateAccountOptions<'a, 'b> {

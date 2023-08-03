@@ -17,7 +17,7 @@ use solana_program::{
 use crate::{
     accounts_struct, accounts_struct_meta,
     error::LidoError,
-    state::RewardDistribution,
+    state::{Criteria, RewardDistribution},
     token::{Lamports, StLamports},
 };
 
@@ -28,11 +28,11 @@ pub enum LidoInstruction {
         #[allow(dead_code)] // but it's not
         reward_distribution: RewardDistribution,
         #[allow(dead_code)] // but it's not
+        criteria: Criteria,
+        #[allow(dead_code)] // but it's not
         max_validators: u32,
         #[allow(dead_code)] // but it's not
         max_maintainers: u32,
-        #[allow(dead_code)] // but it's not
-        max_commission_percentage: u8,
     },
 
     /// Deposit a given amount of SOL.
@@ -107,20 +107,22 @@ pub enum LidoInstruction {
     /// or if vote account is closed, then deactivate it
     ///
     /// Requires no permission
-    DeactivateValidatorIfCommissionExceedsMax {
-        // Index of a validator in validator list
-        #[allow(dead_code)] // but it's not
-        validator_index: u32,
-    },
+    DeactivateIfViolates,
 
-    /// Set max_commission_percentage to control validator's fees.
-    /// If validators exeed the threshold they will be deactivated by
-    /// DeactivateValidatorIfCommissionExceedsMax.
+    /// Check if validator lowered their commission back in the allowed range,
+    /// then activate it back.
+    ///
+    /// Requires no permission
+    ReactivateIfComplies,
+
+    /// Set the curation thresholds to control validator's desired performance.
+    /// If validators fall below the threshold they will be deactivated by
+    /// `DeactivateIfViolates`.
     ///
     /// Requires the manager to sign.
-    SetMaxValidationCommission {
+    ChangeCriteria {
         #[allow(dead_code)] // but it's not
-        max_commission_percentage: u8, // percent in [0, 100]
+        new_criteria: Criteria,
     },
 
     /// Move deposits from the reserve into a stake account and delegate it to a member validator.
@@ -152,6 +154,17 @@ pub enum LidoInstruction {
     /// This can be called by anybody.
     UpdateExchangeRateV2,
 
+    /// Update the off-chain performance metrics for a validator.
+    UpdateOffchainValidatorPerf {
+        #[allow(dead_code)]
+        block_production_rate: u64,
+        #[allow(dead_code)]
+        vote_success_rate: u64,
+    },
+
+    /// Update the performance metrics for a validator, but only its on-chain part.
+    UpdateOnchainValidatorPerf,
+
     /// Withdraw a given amount of stSOL.
     ///
     /// Caller provides some `amount` of StLamports that are to be burned in
@@ -159,6 +172,12 @@ pub enum LidoInstruction {
     WithdrawV2 {
         #[allow(dead_code)] // but it's not
         amount: StLamports,
+        // Index of a validator in validator list
+        #[allow(dead_code)] // but it's not
+        validator_index: u32,
+    },
+
+    EnqueueValidatorForRemovalV2 {
         // Index of a validator in validator list
         #[allow(dead_code)] // but it's not
         validator_index: u32,
@@ -253,6 +272,10 @@ accounts_struct! {
             is_signer: false,
             is_writable: true,
         },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: true,
+        },
         pub maintainer_list {
             is_signer: false,
             is_writable: true,
@@ -266,16 +289,16 @@ accounts_struct! {
 pub fn initialize(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
+    criteria: Criteria,
     max_validators: u32,
     max_maintainers: u32,
-    max_commission_percentage: u8,
     accounts: &InitializeAccountsMeta,
 ) -> Instruction {
     let data = LidoInstruction::Initialize {
         reward_distribution,
+        criteria,
         max_validators,
         max_maintainers,
-        max_commission_percentage,
     };
     Instruction {
         program_id: *program_id,
@@ -438,7 +461,7 @@ accounts_struct! {
         // should be set to the same value as `stake_account_end`.
         pub stake_account_merge_into {
             is_signer: false,
-            // Is writable due to merge (stake_program::intruction::merge) of stake_account_end
+            // Is writable due to merge (stake_program::instruction::merge) of stake_account_end
             // into stake_account_merge_into under the condition that they are not equal
             is_writable: true,
         },
@@ -540,7 +563,7 @@ accounts_struct! {
         const sysvar_clock = sysvar::clock::id(),
         // Required to call cross-program.
         const system_program = system_program::id(),
-        // Required to call `stake_program::intruction::split`.
+        // Required to call `stake_program::instruction::split`.
         const stake_program = stake_program::program::id(),
     }
 }
@@ -596,6 +619,82 @@ pub fn update_exchange_rate(
         program_id: *program_id,
         accounts: accounts.to_vec(),
         data: LidoInstruction::UpdateExchangeRateV2.to_vec(),
+    }
+}
+
+accounts_struct! {
+    UpdateOffchainValidatorPerfAccountsMeta,
+    UpdateOffchainValidatorPerfAccountsInfo {
+        pub lido {
+            is_signer: false,
+            is_writable: true,
+        },
+        pub validator_vote_account_to_update {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: true,
+        },
+
+        const sysvar_clock = sysvar::clock::id(),
+    }
+}
+
+pub fn update_offchain_validator_perf(
+    program_id: &Pubkey,
+    block_production_rate: u64,
+    vote_success_rate: u64,
+    accounts: &UpdateOffchainValidatorPerfAccountsMeta,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::UpdateOffchainValidatorPerf {
+            block_production_rate,
+            vote_success_rate,
+        }
+        .to_vec(),
+    }
+}
+
+accounts_struct! {
+    UpdateOnchainValidatorPerfAccountsMeta,
+    UpdateOnchainValidatorPerfAccountsInfo {
+        pub lido {
+            is_signer: false,
+            is_writable: true,
+        },
+        pub validator_vote_account_to_update {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: true,
+        },
+
+        const sysvar_clock = sysvar::clock::id(),
+    }
+}
+
+pub fn update_onchain_validator_perf(
+    program_id: &Pubkey,
+    accounts: &UpdateOnchainValidatorPerfAccountsMeta,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::UpdateOnchainValidatorPerf.to_vec(),
     }
 }
 
@@ -698,6 +797,39 @@ pub fn deactivate_validator(
         program_id: *program_id,
         accounts: accounts.to_vec(),
         data: LidoInstruction::DeactivateValidatorV2 { validator_index }.to_vec(),
+    }
+}
+
+accounts_struct! {
+    EnqueueValidatorForRemovalMetaV2, EnqueueValidatorForRemovalInfoV2 {
+        pub lido {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub manager {
+            is_signer: true,
+            is_writable: false,
+        },
+        pub validator_vote_account_to_remove {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: true,
+        },
+    }
+}
+
+pub fn enqueue_validator_for_removal(
+    program_id: &Pubkey,
+    accounts: &EnqueueValidatorForRemovalMetaV2,
+    validator_index: u32,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::EnqueueValidatorForRemovalV2 { validator_index }.to_vec(),
     }
 }
 
@@ -938,8 +1070,8 @@ pub fn update_stake_account_balance(
 }
 
 accounts_struct! {
-    DeactivateValidatorIfCommissionExceedsMaxMeta,
-    DeactivateValidatorIfCommissionExceedsMaxInfo {
+    DeactivateIfViolatesMeta,
+    DeactivateIfViolatesInfo {
         pub lido {
             is_signer: false,
             is_writable: false,
@@ -952,24 +1084,59 @@ accounts_struct! {
             is_signer: false,
             is_writable: true,
         },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: false,
+        },
     }
 }
 
-pub fn deactivate_validator_if_commission_exceeds_max(
+pub fn deactivate_if_violates(
     program_id: &Pubkey,
-    accounts: &DeactivateValidatorIfCommissionExceedsMaxMeta,
-    validator_index: u32,
+    accounts: &DeactivateIfViolatesMeta,
 ) -> Instruction {
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),
-        data: LidoInstruction::DeactivateValidatorIfCommissionExceedsMax { validator_index }
-            .to_vec(),
+        data: LidoInstruction::DeactivateIfViolates.to_vec(),
     }
 }
 
 accounts_struct! {
-    SetMaxValidationCommissionMeta, SetMaxValidationCommissionInfo {
+    ReactivateIfCompliesMeta,
+    ReactivateIfCompliesInfo {
+        pub lido {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_vote_account_to_reactivate {
+            is_signer: false,
+            is_writable: false,
+        },
+        pub validator_list {
+            is_signer: false,
+            is_writable: true,
+        },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: false,
+        },
+    }
+}
+
+pub fn reactivate_if_complies(
+    program_id: &Pubkey,
+    accounts: &ReactivateIfCompliesMeta,
+) -> Instruction {
+    Instruction {
+        program_id: *program_id,
+        accounts: accounts.to_vec(),
+        data: LidoInstruction::ReactivateIfComplies.to_vec(),
+    }
+}
+
+accounts_struct! {
+    ChangeCriteriaMeta, ChangeCriteriaInfo {
         pub lido {
             is_signer: false,
             is_writable: true,
@@ -981,14 +1148,12 @@ accounts_struct! {
     }
 }
 
-pub fn set_max_commission_percentage(
+pub fn change_criteria(
     program_id: &Pubkey,
-    accounts: &SetMaxValidationCommissionMeta,
-    max_commission_percentage: u8,
+    accounts: &ChangeCriteriaMeta,
+    new_criteria: Criteria,
 ) -> Instruction {
-    let data = LidoInstruction::SetMaxValidationCommission {
-        max_commission_percentage,
-    };
+    let data = LidoInstruction::ChangeCriteria { new_criteria };
     Instruction {
         program_id: *program_id,
         accounts: accounts.to_vec(),
@@ -1010,6 +1175,10 @@ accounts_struct! {
         pub validator_list {
             is_signer: false,
             is_writable: true,
+        },
+        pub validator_perf_list {
+            is_signer: false,
+            is_writable: false,
         },
         pub maintainer_list {
             is_signer: false,
