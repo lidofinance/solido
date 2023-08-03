@@ -324,15 +324,13 @@ print(f'> Transaction address is {change_multisig_transaction_address}.')
 
 print('\nAdding back the third owner ...')
 result = multisig(
-    'propose-change-multisig',
+    'propose-add-owner',
     '--multisig-program-id',
     multisig_program_id,
     '--multisig-address',
     multisig_address,
-    '--threshold',
-    '2',
-    '--owners',
-    ','.join([addr1.pubkey, addr2.pubkey, addr3.pubkey]),
+    '--owner',
+    addr3.pubkey,
     keypair_path=addr1.keypair_path,
 )
 change_multisig_transaction_address = result['transaction_address']
