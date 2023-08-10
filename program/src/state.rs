@@ -510,7 +510,7 @@ pub struct Lido {
 }
 
 impl Lido {
-    pub const VERSION: u8 = 1;
+    pub const VERSION: u8 = 3;
 
     /// Size of a serialized `Lido` struct excluding validators and maintainers.
     ///
