@@ -84,12 +84,19 @@ def get_solido_program_path() -> str:
         return solido_program_path
 
 
-def get_solido_path() -> str:
-    solido_path = os.getenv('SOLPATH')
-    if solido_path is None:
-        return 'target/debug/solido'
-    else:
-        return solido_path
+def solido_invocation() -> list[str]:
+    """
+    Arguments that precede those passed to Solido.
+
+    It's either ['/target/debug/solido'] or ['cargo', 'run', '--'].
+    """
+    solido_at = os.getenv('SOLIDO_AT')
+    rebuild_solido = os.getenv('REBUILD_SOLIDO')
+    if rebuild_solido is not None:
+        return ['cargo', 'run', '--']
+    if solido_at is not None:
+        return [solido_at]
+    return ['target/debug/solido']
 
 
 def get_network() -> str:
@@ -105,7 +112,7 @@ def solido(*args: str, keypair_path: Optional[str] = None) -> Any:
     Run 'solido' against network, return its parsed json output.
     """
     output = run(
-        get_solido_path(),
+        *solido_invocation(),
         '--cluster',
         get_network(),
         '--output',
@@ -317,7 +324,7 @@ def multisig(*args: str, keypair_path: Optional[str] = None) -> Any:
     Run 'solido multisig' against network, return its parsed json output.
     """
     output = run(
-        get_solido_path(),
+        *solido_invocation(),
         '--cluster',
         get_network(),
         '--output',

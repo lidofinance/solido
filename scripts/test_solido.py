@@ -434,16 +434,29 @@ current_epoch = int(solana('epoch'))
 
 
 def perform_maintenance() -> Any:
-    return solido(
-        'perform-maintenance',
-        '--solido-address',
-        solido_address,
-        '--solido-program-id',
-        solido_program_id,
-        '--stake-time',
-        'anytime',
-        keypair_path=maintainer.keypair_path,
-    )
+    # These may pop up at different times depending on how far we are into the current epoch,
+    # so we fast-forward them until there is something we might expect deterministically.
+    ignored_tasks = {
+        'UpdateExchangeRate',
+        'UpdateOnchainValidatorPerf',
+        'UpdateOffchainValidatorPerf',
+    }
+    while True:
+        result = solido(
+            'perform-maintenance',
+            '--solido-address',
+            solido_address,
+            '--solido-program-id',
+            solido_program_id,
+            '--stake-time',
+            'anytime',
+            keypair_path=maintainer.keypair_path,
+        )
+        if isinstance(result, str) and result in ignored_tasks:
+            continue
+        if isinstance(result, dict) and result.keys() & ignored_tasks:
+            continue
+        return result
 
 
 def consume_maintainence_instructions(verbose: bool = False) -> Any:

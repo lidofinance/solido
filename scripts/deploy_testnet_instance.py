@@ -66,6 +66,7 @@ def main():
             "--keypair=.testnet-keys/multisig-owner",
             "program",
             "deploy",
+            "--skip-fee-check",
             "--output=json",
             util.get_solido_program_path() + "/lido.so",
         )
@@ -86,6 +87,7 @@ def main():
             "--keypair=.testnet-keys/multisig-owner",
             "program",
             "deploy",
+            "--skip-fee-check",
             "--output=json",
             util.get_solido_program_path() + "/serum_multisig.so",
         )
@@ -132,8 +134,14 @@ def main():
             "9",
             "--max-maintainers",
             "3",
-            "--max-commission-percentage",
-            str(util.MAX_VALIDATION_COMMISSION_PERCENTAGE),
+            "--max-commission",
+            "100",
+            "--min-vote-success-rate",
+            "0",
+            "--min-block-production-rate",
+            "0",
+            "--min-uptime",
+            "0",
             "--treasury-fee-share",
             "5",
             "--developer-fee-share",
@@ -178,7 +186,7 @@ def main():
             v
             for v in all_validators
             if not v.delinquent
-            and v.commission == util.MAX_VALIDATION_COMMISSION_PERCENTAGE
+            and v.commission < util.MAX_VALIDATION_COMMISSION_PERCENTAGE
         ]
         for v in active_validators[:2]:
             add_validator_tx = util.solido(
