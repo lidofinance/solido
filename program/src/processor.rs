@@ -1099,7 +1099,7 @@ pub fn process_withdraw(
     let sol_to_withdraw = match lido.exchange_rate.exchange_st_sol(amount) {
         Ok(amount) => amount,
         Err(err) => {
-            msg!("Cannot exchange stSOL for SOL, because no stSTOL has been minted.");
+            msg!("Cannot exchange stSOL for SOL, because no stSOL has been minted.");
             return Err(err.into());
         }
     };
