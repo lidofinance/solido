@@ -1413,7 +1413,8 @@ impl SolidoState {
                 keybase_username: info
                     .keybase_username
                     .as_ref()
-                    .expect("All Lido validators should have a Keybase username set.")
+                    .cloned()
+                    .unwrap_or_default()
                     .to_string(),
             };
 
