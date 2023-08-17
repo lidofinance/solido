@@ -3462,7 +3462,7 @@ dependencies = [
 
 [[package]]
 name = "solido-cli"
-version = "1.3.6"
+version = "1.3.37"
 dependencies = [
  "anchor-lang",
  "bincode",
