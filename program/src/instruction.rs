@@ -229,6 +229,17 @@ pub enum LidoInstruction {
         #[allow(dead_code)] // but it's not
         max_commission_percentage: u8,
     },
+
+    MigrateStateToV3 {
+        #[allow(dead_code)] // but it's not
+        reward_distribution: RewardDistribution,
+        #[allow(dead_code)] // but it's not
+        max_validators: u32,
+        #[allow(dead_code)] // but it's not
+        max_maintainers: u32,
+        #[allow(dead_code)] // but it's not
+        max_commission_percentage: u8,
+    },
 }
 
 impl LidoInstruction {
@@ -1162,7 +1173,7 @@ pub fn change_criteria(
 }
 
 accounts_struct! {
-    MigrateStateToV2Meta, MigrateStateToV2Info {
+    MigrateStateToV3Meta, MigrateStateToV3Info {
         pub lido {
             is_signer: false,
             // Needs to be writable for us to update the metrics.
@@ -1197,7 +1208,7 @@ pub fn migrate_state_to_v2(
     max_validators: u32,
     max_maintainers: u32,
     max_commission_percentage: u8,
-    accounts: &MigrateStateToV2Meta,
+    accounts: &MigrateStateToV3Meta,
 ) -> Instruction {
     let data = LidoInstruction::MigrateStateToV2 {
         reward_distribution,

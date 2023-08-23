@@ -8,7 +8,7 @@ use std::ops::{Add, Sub};
 use crate::{
     error::LidoError,
     instruction::{
-        DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV2Info,
+        DepositAccountsInfo, InitializeAccountsInfo, LidoInstruction, MigrateStateToV3Info,
         StakeDepositAccountsInfoV2, UnstakeAccountsInfoV2, UpdateExchangeRateAccountsInfoV2,
         UpdateOffchainValidatorPerfAccountsInfo, UpdateOnchainValidatorPerfAccountsInfo,
         UpdateStakeAccountBalanceInfo, WithdrawAccountsInfoV2,
@@ -28,7 +28,7 @@ use crate::{
     },
     stake_account::{deserialize_stake_account, StakeAccount},
     state::{
-        AccountType, Criteria, ExchangeRate, FeeRecipients, Lido, LidoV1, ListEntry, Maintainer,
+        legacy, AccountType, Criteria, ExchangeRate, FeeRecipients, Lido, ListEntry,
         MaintainerList, OffchainValidatorPerf, RewardDistribution, StakeDeposit, Validator,
         ValidatorList, ValidatorPerf, ValidatorPerfList,
     },
@@ -1174,7 +1174,7 @@ pub fn process_withdraw(
 }
 
 /// Migrate Solido state to version 2
-pub fn process_migrate_to_v2(
+pub fn process_migrate_to_v3(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
     max_validators: u32,
@@ -1182,13 +1182,15 @@ pub fn process_migrate_to_v2(
     max_commission_percentage: u8,
     accounts_raw: &[AccountInfo],
 ) -> ProgramResult {
-    let accounts = MigrateStateToV2Info::try_from_slice(accounts_raw)?;
-    let lido_v1 = LidoV1::deserialize_lido(program_id, accounts.lido)?;
-    lido_v1.check_manager(accounts.manager)?;
-
-    if !(lido_v1.lido_version == 0 && Lido::VERSION == 1) {
-        return Err(LidoError::LidoVersionMismatch.into());
+    let accounts = MigrateStateToV3Info::try_from_slice(accounts_raw)?;
+    let old = legacy::Lido::deserialize_lido(program_id, accounts.lido)?;
+    if !(old.lido_version < 3) {
+        // If the guard does not fire, it means we already have migrated,
+        // so nothing to do here.
+        msg!("Data accounts are already at the latest schema.");
+        return Err(LidoError::AlreadyInUse.into());
     }
+    old.check_manager(accounts.manager)?;
 
     let rent = &Rent::get()?;
     check_rent_exempt(rent, accounts.validator_list, "Validator list account")?;
@@ -1220,31 +1222,6 @@ pub fn process_migrate_to_v2(
         return Err(LidoError::AlreadyInUse.into());
     }
 
-    if lido_v1.maintainers.entries.len() > max_maintainers as usize {
-        msg!("max_maintainers is too small");
-        return Err(LidoError::MaximumNumberOfAccountsExceeded.into());
-    }
-    let mut maintainers = MaintainerList::new_default(0);
-    maintainers.header.max_entries = max_maintainers;
-
-    for pe in lido_v1.maintainers.entries {
-        maintainers.entries.push(Maintainer::new(pe.pubkey));
-    }
-
-    if lido_v1.validators.entries.len() > max_validators as usize {
-        msg!("max_validators is too small");
-        return Err(LidoError::MaximumNumberOfAccountsExceeded.into());
-    }
-    let mut validators = ValidatorList::new_default(0);
-    validators.header.max_entries = max_validators;
-
-    if !lido_v1.validators.entries.is_empty() {
-        msg!("There should be no validators in Solido state prior to update.");
-        msg!("You should first deactivate all validators and wait for epoch boundary.");
-        msg!("Then maintainers will withdraw inactive stake to reserve and remove validators.");
-        return Err(LidoError::ValidatorListNotEmpty.into());
-    }
-
     if max_commission_percentage > 100 {
         return Err(LidoError::ValidationCommissionOutOfBounds.into());
     }
@@ -1257,25 +1234,27 @@ pub fn process_migrate_to_v2(
         validator_perf_list: *accounts.validator_perf_list.key,
         maintainer_list: *accounts.maintainer_list.key,
         fee_recipients: FeeRecipients {
-            treasury_account: lido_v1.fee_recipients.treasury_account,
+            treasury_account: old.fee_recipients.treasury_account,
             developer_account: *accounts.developer_account.key,
         },
         reward_distribution,
-        manager: lido_v1.manager,
-        st_sol_mint: lido_v1.st_sol_mint,
-        exchange_rate: lido_v1.exchange_rate,
-        sol_reserve_account_bump_seed: lido_v1.sol_reserve_account_bump_seed,
-        mint_authority_bump_seed: lido_v1.mint_authority_bump_seed,
-        stake_authority_bump_seed: lido_v1.stake_authority_bump_seed,
-        metrics: lido_v1.metrics,
+        manager: old.manager,
+        st_sol_mint: old.st_sol_mint,
+        exchange_rate: ExchangeRate {
+            computed_in_epoch: old.exchange_rate.computed_in_epoch,
+            st_sol_supply: old.exchange_rate.st_sol_supply,
+            sol_balance: old.exchange_rate.sol_balance,
+        },
+        sol_reserve_account_bump_seed: old.sol_reserve_account_bump_seed,
+        mint_authority_bump_seed: old.mint_authority_bump_seed,
+        stake_authority_bump_seed: old.stake_authority_bump_seed,
+        metrics: old.metrics,
         criteria: Criteria::default(),
     };
 
     // Confirm that the fee recipients are actually stSOL accounts.
     lido.check_is_st_sol_account(accounts.developer_account)?;
 
-    validators.save(accounts.validator_list)?;
-    maintainers.save(accounts.maintainer_list)?;
     lido.save(accounts.lido)
 }
 
@@ -1368,12 +1347,12 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         LidoInstruction::ChangeCriteria { new_criteria } => {
             process_change_criteria(program_id, new_criteria, accounts)
         }
-        LidoInstruction::MigrateStateToV2 {
+        LidoInstruction::MigrateStateToV3 {
             reward_distribution,
             max_validators,
             max_maintainers,
             max_commission_percentage,
-        } => process_migrate_to_v2(
+        } => process_migrate_to_v3(
             program_id,
             reward_distribution,
             max_validators,
@@ -1391,6 +1370,7 @@ pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> P
         | LidoInstruction::DeactivateValidator
         | LidoInstruction::RemoveMaintainer
         | LidoInstruction::RemoveValidator
+        | LidoInstruction::MigrateStateToV2 { .. }
         | LidoInstruction::StakeDeposit { .. }
         | LidoInstruction::Unstake { .. }
         | LidoInstruction::Withdraw { .. } => {

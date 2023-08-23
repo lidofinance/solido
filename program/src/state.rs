@@ -44,6 +44,8 @@ pub use validator_perf::{Criteria, OffchainValidatorPerf, ValidatorPerf};
 mod maintainer;
 pub use maintainer::Maintainer;
 
+pub mod legacy;
+
 /// Types of list entries
 /// Uninitialized should always be a first enum field as it catches empty list data errors
 #[derive(Clone, Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize, Serialize, BorshSchema)]
@@ -528,6 +530,14 @@ impl Lido {
                 lido.account_type
             );
             return Err(LidoError::InvalidAccountType.into());
+        }
+        if lido.lido_version != Lido::VERSION {
+            msg!(
+                "Lido version mismatch, expected {}, got {}",
+                Lido::VERSION,
+                lido.lido_version
+            );
+            return Err(LidoError::LidoVersionMismatch.into());
         }
 
         check_lido_version(lido.lido_version, AccountType::Lido)?;
