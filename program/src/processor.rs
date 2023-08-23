@@ -1173,7 +1173,7 @@ pub fn process_withdraw(
     lido.save(accounts.lido)
 }
 
-/// Migrate Solido state to version 2
+/// Migrate Solido state to the newer version
 #[allow(clippy::nonminimal_bool)]
 pub fn process_migrate_to_v3(
     program_id: &Pubkey,
