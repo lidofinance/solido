@@ -1185,8 +1185,6 @@ pub fn process_migrate_to_v3(
     let accounts = MigrateStateToV3Info::try_from_slice(accounts_raw)?;
     let old = legacy::Lido::deserialize_lido(program_id, accounts.lido)?;
     if !(old.lido_version < 3) {
-        // If the guard does not fire, it means we already have migrated,
-        // so nothing to do here.
         msg!("Data accounts are already at the latest schema.");
         return Err(LidoError::AlreadyInUse.into());
     }
