@@ -1424,7 +1424,7 @@ pub fn command_migrate_state_to_v2(
             6_700,
             5_000,
             *opts.max_commission_percentage(),
-            &lido::instruction::MigrateStateToV2Meta {
+            &lido::instruction::MigrateStateToV3Meta {
                 lido: *opts.solido_address(),
                 manager: multisig_address,
                 validator_list: *opts.validator_list_address(),

@@ -26,7 +26,7 @@ use solana_sdk::sysvar;
 use lido::{
     instruction::{
         AddMaintainerMetaV2, AddValidatorMetaV2, ChangeCriteriaMeta, ChangeRewardDistributionMeta,
-        DeactivateValidatorMetaV2, LidoInstruction, MigrateStateToV2Meta, RemoveMaintainerMetaV2,
+        DeactivateValidatorMetaV2, LidoInstruction, MigrateStateToV3Meta, RemoveMaintainerMetaV2,
     },
     state::{Criteria, FeeRecipients, Lido, RewardDistribution},
     util::{serialize_b58, serialize_b58_slice},
@@ -1082,13 +1082,13 @@ fn try_parse_solido_instruction(
                 manager: accounts.manager,
             })
         }
-        LidoInstruction::MigrateStateToV2 {
+        LidoInstruction::MigrateStateToV3 {
             reward_distribution,
             max_validators,
             max_maintainers,
             max_commission_percentage,
         } => {
-            let accounts = MigrateStateToV2Meta::try_from_slice(&instr.accounts)?;
+            let accounts = MigrateStateToV3Meta::try_from_slice(&instr.accounts)?;
             ParsedInstruction::SolidoInstruction(SolidoInstruction::MigrateStateToV2 {
                 solido_instance: accounts.lido,
                 manager: accounts.manager,
