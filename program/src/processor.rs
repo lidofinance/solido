@@ -1174,6 +1174,7 @@ pub fn process_withdraw(
 }
 
 /// Migrate Solido state to version 2
+#[allow(clippy::nonminimal_bool)]
 pub fn process_migrate_to_v3(
     program_id: &Pubkey,
     reward_distribution: RewardDistribution,
