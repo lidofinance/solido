@@ -45,6 +45,12 @@ if __name__ == '__main__':
         help='Create and output multisig transactions to deactivate all validators',
     )
     current_parser.add_argument(
+        "--vote-accounts",
+        type=str,
+        help='List of validator vote account file path',
+        required=True,
+    )
+    current_parser.add_argument(
         "--keypair-path",
         type=str,
         help='Signer keypair or a ledger path',
@@ -144,15 +150,15 @@ if __name__ == '__main__':
         lido_state = solido('--config', os.getenv("SOLIDO_CONFIG"), 'show-solido')
         validators = lido_state['validators']['entries']
         print("vote accounts:")
-        with open(args.outfile, 'w') as ofile:
-            for validator in validators:
-                print(validator['pubkey'])
+        with open(args.vote_accounts) as infile, open(args.outfile, 'w') as ofile:
+            for pubkey in infile:
+                print(pubkey)
                 result = solido(
                     '--config',
                     os.getenv("SOLIDO_CONFIG"),
                     'deactivate-validator',
                     '--validator-vote-account',
-                    validator['pubkey'],
+                    pubkey.rstrip(),
                     keypair_path=args.keypair_path,
                 )
                 address = result.get('transaction_address')
