@@ -132,6 +132,8 @@ if __name__ == '__main__':
     sys.argv.append('--verbose')
 
     install_solido()
+    set_solido_cli_path(os.getenv("SOLIDO_V2"))
+
     with open(str(os.getenv("SOLIDO_CONFIG"))) as f:
         config = json.load(f)
         cluster = config.get("cluster")
@@ -139,9 +141,8 @@ if __name__ == '__main__':
             os.environ['NETWORK'] = cluster
 
     if args.command == "deactivate-validators":
-        set_solido_cli_path(os.getenv("SOLIDO_V1"))
         lido_state = solido('--config', os.getenv("SOLIDO_CONFIG"), 'show-solido')
-        validators = lido_state['solido']['validators']['entries']
+        validators = lido_state['validators']['entries']
         print("vote accounts:")
         with open(args.outfile, 'w') as ofile:
             for validator in validators:
@@ -161,7 +162,6 @@ if __name__ == '__main__':
                     ofile.write(address + '\n')
 
     elif args.command == "add-validators":
-        set_solido_cli_path(os.getenv("SOLIDO_V2"))
         print("vote accounts:")
         with open(args.vote_accounts) as infile, open(args.outfile, 'w') as ofile:
             for pubkey in infile:
@@ -182,14 +182,6 @@ if __name__ == '__main__':
 
     elif args.command == "execute-transactions":
         with open(args.transactions) as infile:
-            if args.phase == "deactivation":
-                set_solido_cli_path(os.getenv("SOLIDO_V1"))
-            elif args.phase == "adding":
-                print(args.phase)
-                set_solido_cli_path(os.getenv("SOLIDO_V2"))
-            else:
-                print("Unknown phase")
-
             for transaction in infile:
                 transaction = transaction.strip()
                 transaction_info = solido(
@@ -214,7 +206,6 @@ if __name__ == '__main__':
                     print(f"Transaction {transaction} executed")
 
     elif args.command == "load-program":
-        set_solido_cli_path(os.getenv("SOLIDO_V1"))
         lido_state = solido('--config', os.getenv("SOLIDO_CONFIG"), 'show-solido')
         write_result = solana(
             '--output',
@@ -241,20 +232,16 @@ if __name__ == '__main__':
         with open(args.transactions_path, 'r') as ifile:
             if args.phase == "deactivation":
                 print(args.phase)
-                set_solido_cli_path(os.getenv("SOLIDO_V1"))
                 verify_transaction.verify_solido_state()
                 verify_transaction.verify_transactions(ifile)
             elif args.phase == "preparation":
                 print(args.phase)
             elif args.phase == "upgrade":
                 print(args.phase)
-                set_solido_cli_path(os.getenv("SOLIDO_V1"))
                 verify_transaction.verify_solido_state()
-                set_solido_cli_path(os.getenv("SOLIDO_V2"))
                 verify_transaction.verify_transactions(ifile)
             elif args.phase == "adding":
                 print(args.phase)
-                set_solido_cli_path(os.getenv("SOLIDO_V2"))
                 verify_transaction.verify_solido_state()
                 verify_transaction.verify_transactions(ifile)
             else:

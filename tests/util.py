@@ -61,7 +61,7 @@ def get_solido_program_path() -> str:
 
 
 def get_solido_path() -> str:
-    solido_path = os.getenv('SOLPATH')
+    solido_path = os.getenv('SOLIDO_V2')
     if solido_path is None:
         return 'target/debug/solido'
     else:
