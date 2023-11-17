@@ -10,7 +10,7 @@ import json
 import sys
 import os.path
 from typing import Any, Optional
-import verify_transaction
+from verify_transaction import verify_transactions
 from install_solido import install_solido
 
 
@@ -238,7 +238,7 @@ if __name__ == '__main__':
         with open(args.transactions_path, 'r') as ifile:
             if args.phase == "deactivation":
                 print(args.phase)
-                verify_transaction.verify_transactions(ifile)
+                verify_transactions(ifile)
             else:
                 print("Unknown phase")
     elif args.command == "install-solido":
