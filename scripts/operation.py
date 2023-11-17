@@ -238,17 +238,6 @@ if __name__ == '__main__':
         with open(args.transactions_path, 'r') as ifile:
             if args.phase == "deactivation":
                 print(args.phase)
-                verify_transaction.verify_solido_state()
-                verify_transaction.verify_transactions(ifile)
-            elif args.phase == "preparation":
-                print(args.phase)
-            elif args.phase == "upgrade":
-                print(args.phase)
-                verify_transaction.verify_solido_state()
-                verify_transaction.verify_transactions(ifile)
-            elif args.phase == "adding":
-                print(args.phase)
-                verify_transaction.verify_solido_state()
                 verify_transaction.verify_transactions(ifile)
             else:
                 print("Unknown phase")
