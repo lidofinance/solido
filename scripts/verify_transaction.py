@@ -11,16 +11,17 @@ from typing import Any, Dict, Set, List
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
-from tests.util import solido, solana, run  # type: ignore
+from testscripts.util import solido, solana, run  # type: ignore
 
 Sample: Dict[str, Any] = {
-    'solido_instance': '2i2crMWRb9nUY6HpDDp3R1XAXXB9UNdWAdtD9Kp9eUNT',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
+    'solido_instance': '49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn',  # "solido_address": "49Yi1TKkNyYjPAFdR9LBvoHcUjuPX4Df5T5yv39w2XTn",
     'program_to_upgrade': '2QYdJZhBrg5wAvkVA98WM2JtTXngsTpBXSq2LXnVUa33',  # solido_config.json : solido_program_id
     'program_data_address': 'HZe59cxGy7irFUtcmcUwkmvERrwyCUKaJQavwt7VrVTg',
     'buffer_address': '2LCfqfcQBjKEpvyA54vwAGaYTUXt1L13MwEsDbrzuJbw',  # buffer adres account
     'validator_list': 'HDLRixNLF3PLBMfxhKgKxeZEDhA84RiRUSZFm2zwimeE',
     'maintainer_list': '2uLFh1Ec8NP1fftKD2MLnF12Kw4CTXNHhDtqsWVz7f9K',
     'developer_account': '5vgbVafXQiVb9ftDix1NadV7D6pgP5H9YPCaoKcPrBxZ',
+    'manager': 'GQ3QPrB1RHPRr4Reen772WrMZkHcFM4DL5q44x1BBTFm',
     'reward_distribution': {
         'treasury_fee': 4,
         'developer_fee': 1,
@@ -108,6 +109,15 @@ def ValidateDeactivateV1VoteAccount(dataDict: Any, key: str) -> str:
         retbuf += printSolution(False)
     return retbuf
 
+def ValidateDeactivateV2VoteAccount(dataDict: Any, key: str) -> str:
+    value = dataDict.get(key)
+    retbuf = key + " " + str(value)
+    if key in dataDict.keys():
+        retbuf += printSolution(checkVoteUnic(value) and checkVoteInV2Set(value))
+    else:
+        retbuf += printSolution(False)
+    return retbuf
+
 
 def ValidateAddV2VoteAccount(dataDict: Any, key: str) -> str:
     value = dataDict.get(key)
@@ -142,35 +152,13 @@ def verify_solido_state() -> None:
     l1_keys = json_data.get('solido')
     global SolidoVersion
     SolidoVersion = l1_keys.get('lido_version')
-    validators = l1_keys.get('validators')
+    validators = json_data['validators']['entries']
+    
     if validators != None:
-        for validator in validators.get('entries'):
+        for validator in validators:
             vote_acc = validator.get('pubkey')
-            if validator.get('entry').get('active') == True:
-                ValidatorSetV1.add(vote_acc)
-
-    # detect current state
-    global SolidoState
-    if SolidoVersion == 0:
-        if len(ValidatorSetV1) == 21:
-            SolidoState = "Deactivate validators"
-        elif len(ValidatorSetV1) == 0:
-            SolidoState = "Upgrade program"
-        else:
-            SolidoState = "Unknown state - solido version = "
-            SolidoState += str(SolidoVersion)
-            SolidoState += " active validators count = "
-            SolidoState += str(len(ValidatorSetV1))
-    elif SolidoVersion == 1 and len(ValidatorSetV1) == 0:
-        SolidoState = "Add validators"
-    else:
-        SolidoState = "Unknown state - solido version = "
-        SolidoState += str(SolidoVersion)
-        SolidoState += " active validators count = "
-        SolidoState += str(len(ValidatorSetV1))
-
-    # output result
-    print("\nCurrent migration state: " + SolidoState)
+            if validator.get('active') == True:
+                ValidatorSetV2.add(vote_acc)
 
 
 def verify_transaction_data(json_data: Any) -> bool:
@@ -182,12 +170,11 @@ def verify_transaction_data(json_data: Any) -> bool:
         output_buf += "SolidoInstruction "
         l2_data = l1_keys['SolidoInstruction']
         if 'DeactivateValidator' in l2_data.keys():
-            output_buf += "DeactivateValidator"
-            output_buf += ValidateSolidoState("Deactivate validators")
+            output_buf += "DeactivateValidator [OK]\n"
             trans_data = l2_data['DeactivateValidator']
             output_buf += ValidateField(trans_data, 'solido_instance')
             output_buf += ValidateField(trans_data, 'manager')
-            output_buf += ValidateDeactivateV1VoteAccount(
+            output_buf += ValidateDeactivateV2VoteAccount(
                 trans_data, 'validator_vote_account'
             )
         elif 'AddValidator' in l2_data.keys():
@@ -238,6 +225,7 @@ def verify_transaction_data(json_data: Any) -> bool:
 def verify_transactions(ifile):
     Counter = 0
     Success = 0
+    verify_solido_state()
     for transaction in ifile:
         result = solido(
             '--config',

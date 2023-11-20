@@ -9,7 +9,7 @@ from typing import Any
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
-from tests.util import solido, solana, run  # type: ignore
+from testscripts.util import solido, solana, run  # type: ignore
 
 
 def check_env(param):
