@@ -1167,11 +1167,7 @@ impl SolidoState {
                 produced_at: self.produced_at,
                 vote_account: validator.pubkey().to_string(),
                 name: sanitize_validator_name(&info.name),
-                keybase_username: info
-                    .keybase_username
-                    .as_ref()
-                    .expect("All Lido validators should have a Keybase username set.")
-                    .to_string(),
+                keybase_username: "".to_string(),
             };
 
             let stake_balance: StakeBalance = stake_accounts
