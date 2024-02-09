@@ -1,3 +1,6 @@
+> [!WARNING]
+> ***THIS PROJECT IS NOT SUPPORTED ANYMORE!***
+
 # Lido for Solana
 
 *Lido for Solana* (“Solido” for short) is a [Lido DAO][lido]-governed liquid
