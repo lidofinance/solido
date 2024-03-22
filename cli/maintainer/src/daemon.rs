@@ -67,6 +67,7 @@ struct MaintenanceMetrics {
 
 impl MaintenanceMetrics {
     /// Serialize metrics in Prometheus text format.
+    /*
     pub fn write_prometheus<W: io::Write>(&self, out: &mut W) -> io::Result<()> {
         write_metric(
             out,
@@ -115,6 +116,7 @@ impl MaintenanceMetrics {
         )?;
         Ok(())
     }
+    */
 
     /// Increment the counter for a maintenance operation.
     pub fn observe_maintenance(&mut self, maintenance_output: &MaintenanceOutput) {
@@ -146,7 +148,7 @@ impl MaintenanceMetrics {
 /// Snapshot of metrics and Solido state.
 struct Snapshot {
     /// Metrics about what the daemon has done so far.
-    metrics: MaintenanceMetrics,
+    //metrics: MaintenanceMetrics,
 
     /// The current state of on-chain accounts, and the time at which we obtained
     /// that data.
@@ -324,7 +326,7 @@ impl<'a, 'b> Daemon<'a, 'b> {
         }
 
         let snapshot = Snapshot {
-            metrics: self.metrics.clone(),
+           // metrics: self.metrics.clone(),
             solido,
         };
         self.snapshot_mutex
@@ -469,11 +471,12 @@ fn serve_request(request: Request, snapshot_mutex: &SnapshotMutex) -> Result<(),
 
     // We don't even look at the request, for now we always serve the metrics.
 
-    let mut out: Vec<u8> = Vec::new();
-    let mut is_ok = snapshot.metrics.write_prometheus(&mut out).is_ok();
+    let out: Vec<u8> = Vec::new();
+    let mut is_ok = true;
+    //snapshot.metrics.write_prometheus(&mut out).is_ok();
 
     if let Some(ref solido) = snapshot.solido {
-        is_ok = is_ok && solido.write_prometheus(&mut out).is_ok();
+        is_ok = is_ok;// && solido.write_prometheus(&mut out).is_ok();
     }
 
     if is_ok {

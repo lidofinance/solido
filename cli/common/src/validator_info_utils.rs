@@ -13,9 +13,9 @@ use crate::error::{Error, SerializationError};
 
 type Result<T> = std::result::Result<T, Error>;
 
-/// Validator metadata stored in a config account managed by the config program.
-#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
-pub struct ValidatorInfo {
+// Validator metadata stored in a config account managed by the config program.
+//#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+/* pub struct ValidatorInfo {
     pub name: String,
 
     // Rename the field because this is how Solana stores it, it needs to have
@@ -24,22 +24,21 @@ pub struct ValidatorInfo {
     pub keybase_username: Option<String>,
     // Other keys that can be present in the json object are "details" and
     // "website", but we have no need for those at this point.
-}
-
-/// Deserialize a config account that contains validator info.
-///
-/// Returns the validator identity account address, and the validator info for
-/// that validator. The config address is not related to the validator identity
-/// address or any other validator property; to find the config account for a
-/// given validator, we have to deserialize all config accounts that exist, and
-/// filter for the one that belongs to a given identity account. See
-/// [`get_validator_info_accounts`] for that.
-pub fn deserialize_validator_info(
+} */
+// Deserialize a config account that contains validator info.
+//
+// Returns the validator identity account address, and the validator info for
+// that validator. The config address is not related to the validator identity
+// address or any other validator property; to find the config account for a
+// given validator, we have to deserialize all config accounts that exist, and
+// filter for the one that belongs to a given identity account. See
+// [`get_validator_info_accounts`] for that.
+/* pub fn deserialize_validator_info(
     config_address: Pubkey,
     account_data: &[u8],
 ) -> Result<(Pubkey, ValidatorInfo)> {
-    let key_list: ConfigKeys = bincode::deserialize(account_data)?;
 
+    let key_list: ConfigKeys = bincode::deserialize(account_data)?;
     // I don't know the meaning of the boolean here, but this is what `solana validator-info get`
     // uses to check if a config account contains validator info.
     if !key_list.keys.contains(&(validator_info::id(), false)) {
@@ -48,9 +47,9 @@ pub fn deserialize_validator_info(
             cause: None,
             address: config_address,
         };
+        println!("ERROR {}", config_address);
         return Err(Box::new(err));
     }
-
     // The validator identity pubkey lives at index 1.
     let (validator_identity, identity_signed_config) = key_list.keys[1];
 
@@ -72,22 +71,21 @@ pub fn deserialize_validator_info(
         as usize;
     let json_data: String = bincode::deserialize(&account_data[key_list_len..])?;
     let validator_info: ValidatorInfo = serde_json::from_str(&json_data)?;
-
     Ok((validator_identity, validator_info))
 }
 
-/// Return a map from validator identity account to config account.
-///
-/// To get the validator info (the validator metadata, such as name and Keybase
-/// username), we have to extract that from the config account that stores the
-/// validator info for a particular validator. But there is no way a priori to
-/// know the address of the config account for a given validator; the only way
-/// is to enumerate all config accounts and then find the one you are looking
-/// for. This function builds a map from identity account to config account, so
-/// we only have to enumerate once.
+// Return a map from validator identity account to config account.
+//
+// To get the validator info (the validator metadata, such as name and Keybase
+// username), we have to extract that from the config account that stores the
+// validator info for a particular validator. But there is no way a priori to
+// know the address of the config account for a given validator; the only way
+// is to enumerate all config accounts and then find the one you are looking
+// for. This function builds a map from identity account to config account, so
+// we only have to enumerate once.
 pub fn get_validator_info_accounts(rpc_client: &mut RpcClient) -> Result<HashMap<Pubkey, Pubkey>> {
     use solana_sdk::config::program as config_program;
-
+    println!("get_validator_info_accounts");
     let all_config_accounts = rpc_client.get_program_accounts(&config_program::id())?;
     let mut mapping = HashMap::new();
 
@@ -107,9 +105,12 @@ pub fn get_validator_info_accounts(rpc_client: &mut RpcClient) -> Result<HashMap
             // we can read it atomically together with other accounts.
             let old_config_addr = mapping.insert(validator_identity, *config_addr);
             if old_config_addr.is_some() {
+                println!("BAD {}", validator_identity);
                 bad_identities.insert(validator_identity);
             }
         } else {
+            println!("ERR");
+
             // We ignore errors here: not all config accounts need to contain
             // validator info, so if we fail to deserialize the config account,
             // that is not fatal, it just means this is not an account that
@@ -118,6 +119,7 @@ pub fn get_validator_info_accounts(rpc_client: &mut RpcClient) -> Result<HashMap
     }
 
     for bad_identity in &bad_identities {
+        println!("BAD REMOVED {}", bad_identity);
         mapping.remove(bad_identity);
     }
 
@@ -159,3 +161,4 @@ mod test {
         )
     }
 }
+ */

@@ -29,7 +29,8 @@ use solana_sdk::{
 use solana_vote_program::vote_state::VoteState;
 use solido_cli_common::{
     error::MaintenanceError, snapshot::SnapshotConfig, snapshot::SnapshotError,
-    validator_info_utils::ValidatorInfo, Result,
+   // validator_info_utils::ValidatorInfo, 
+    Result,
 };
 use spl_token::state::Mint;
 
@@ -289,7 +290,7 @@ pub struct SolidoState {
 
     /// For each validator, in the same order as in `solido.validators`, holds
     /// the validator info (name and Keybase username).
-    pub validator_infos: Vec<ValidatorInfo>,
+   // pub validator_infos: Vec<ValidatorInfo>,
 
     /// For each maintainer, in the same order as in `solido.maintainers`, holds
     /// the number of Lamports in the maintainer's account.
@@ -376,7 +377,7 @@ fn get_account_balance_except_rent(rent: &Rent, account: &Account) -> Lamports {
 }
 
 /// Given a public validator name, return one suitable for use in metrics.
-fn sanitize_validator_name(name: &str) -> String {
+/*fn sanitize_validator_name(name: &str) -> String {
     // Lido policy is that validator names should start with "Lido / ", so that
     // adds no information, strip it here to leave more space for graphs in
     // dashboards, and not waste so much space on the redundant part of the name.
@@ -405,6 +406,7 @@ fn sanitize_validator_name(name: &str) -> String {
         None => format!("INVALID: {}", name),
     }
 }
+*/
 
 impl SolidoState {
     // Set the minimum withdraw from stake accounts and validator's vote
@@ -451,23 +453,24 @@ impl SolidoState {
         let mut validator_vote_account_balances = Vec::new();
         let mut validator_identity_account_balances = Vec::new();
         let mut validator_vote_accounts = Vec::new();
-        let mut validator_infos = Vec::new();
+        //let mut validator_infos = Vec::new();
         for validator in validators.entries.iter() {
+
             match config.client.get_account(validator.pubkey()) {
                 Ok(vote_account) => {
-                    let vote_state = config.client.get_vote_account(validator.pubkey())?;
+                    let node_pubkey = config.client.get_node_pubkey(validator.pubkey())?;
 
                     // prometheus
                     validator_vote_account_balances
                         .push(get_account_balance_except_rent(&rent, vote_account));
-                    let validator_info =
-                        config.client.get_validator_info(&vote_state.node_pubkey)?;
-                    let identity_account = config.client.get_account(&vote_state.node_pubkey)?;
+                   // let validator_info = config.client.get_validator_info(&node_pubkey)?;
+                    let identity_account = config.client.get_account(&node_pubkey)?;
                     validator_identity_account_balances
                         .push(get_account_balance_except_rent(&rent, identity_account));
-                    validator_infos.push(validator_info);
-
-                    validator_vote_accounts.push(Some(vote_state));
+                    //validator_infos.push(validator_info);
+                    validator_vote_accounts.push(None);
+                    println!("validator_vote_accounts = none");
+                    //validator_vote_accounts.push(Some(vote_state));
                 }
                 Err(err) => match err {
                     SnapshotError::OtherError(_) => {
@@ -524,7 +527,7 @@ impl SolidoState {
             validator_vote_account_balances,
             validator_vote_accounts,
             validator_identity_account_balances,
-            validator_infos,
+            //validator_infos,
             maintainer_balances,
             reserve_address,
             reserve_account: reserve_account.clone(),
@@ -1020,7 +1023,7 @@ impl SolidoState {
         });
         Some(MaintenanceInstruction::new(instruction, task))
     }
-
+/* 
     /// Write metrics about the current Solido instance in Prometheus format.
     pub fn write_prometheus<W: io::Write>(&self, out: &mut W) -> io::Result<()> {
         use solido_cli_common::prometheus::{
@@ -1140,7 +1143,7 @@ impl SolidoState {
             .zip(self.validator_unstake_accounts.iter())
             .zip(self.validator_vote_accounts.iter())
             .zip(self.validator_identity_account_balances.iter())
-            .zip(self.validator_infos.iter())
+            //.zip(self.validator_infos.iter())
         {
             // Helper struct to add the right labels to our metrics. Ideally we
             // would do this in a closure, but it's not possible to add the required
@@ -1304,7 +1307,7 @@ impl SolidoState {
 
         Ok(())
     }
-
+*/
     fn get_stake_authority(&self) -> Pubkey {
         let (stake_authority, _bump_seed_authority) = lido::find_authority_program_address(
             &self.solido_program_id,

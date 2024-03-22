@@ -25,7 +25,7 @@ use lido::{
 use solido_cli_common::{
     error::{CliError, Error},
     snapshot::{SnapshotClientConfig, SnapshotConfig},
-    validator_info_utils::ValidatorInfo,
+    //validator_info_utils::ValidatorInfo,
 };
 
 use crate::{
@@ -439,7 +439,7 @@ pub struct ShowSolidoOutput {
     pub validator_identities: Vec<Pubkey>,
 
     /// Contains validator info in the same order as `solido.validators`.
-    pub validator_infos: Vec<ValidatorInfo>,
+    //pub validator_infos: Vec<ValidatorInfo>,
 
     /// Contains validator fees in the same order as `solido.validators`.
     pub validator_commission_percentages: Vec<u8>,
@@ -584,19 +584,19 @@ impl fmt::Display for ShowSolidoOutput {
             self.validators.len(),
             self.validators.header.max_entries
         )?;
-        for (((pe, identity), info), commission) in self
+        for ((pe, identity), commission) in self
             .validators
             .entries
             .iter()
             .zip(&self.validator_identities)
-            .zip(&self.validator_infos)
+            //.zip(&self.validator_infos)
             .zip(&self.validator_commission_percentages)
         {
             writeln!(
                 f,
                 "\n  - \
-                Name:                      {}\n    \
-                Keybase username:          {}\n    \
+                Name:                      \n    \
+                Keybase username:          \n    \
                 Vote account:              {}\n    \
                 Identity account:          {}\n    \
                 Commission:                {}%\n    \
@@ -604,11 +604,11 @@ impl fmt::Display for ShowSolidoOutput {
                 Stake in all accounts:     {}\n    \
                 Stake in stake accounts:   {}\n    \
                 Stake in unstake accounts: {}",
-                info.name,
-                match &info.keybase_username {
-                    Some(username) => &username[..],
-                    None => "not set",
-                },
+               // info.name,
+               // match &info.keybase_username {
+                //    Some(username) => &username[..],
+                 //   None => "not set",
+               // },
                 pe.pubkey(),
                 identity,
                 commission,
@@ -692,13 +692,14 @@ pub fn command_show_solido(
         .get_account_list::<Maintainer>(&lido.maintainer_list)?;
 
     let mut validator_identities = Vec::new();
-    let mut validator_infos = Vec::new();
+    //let mut validator_infos = Vec::new();
     let mut validator_commission_percentages = Vec::new();
     for validator in validators.entries.iter() {
-        let vote_state = config.client.get_vote_account(validator.pubkey())?;
-        validator_identities.push(vote_state.node_pubkey);
-        let info = config.client.get_validator_info(&vote_state.node_pubkey)?;
-        validator_infos.push(info);
+        let node_pubkey = config.client.get_node_pubkey(validator.pubkey())?;
+        validator_identities.push(node_pubkey);
+       // let info = config.client.get_validator_info(&node_pubkey)?;
+
+       // validator_infos.push(info);
         let vote_account = config.client.get_account(validator.pubkey())?;
         let commission = get_vote_account_commission(&vote_account.data)
             .ok()
@@ -711,7 +712,7 @@ pub fn command_show_solido(
         solido_address: *opts.solido_address(),
         solido: lido,
         validator_identities,
-        validator_infos,
+        //validator_infos,
         validator_commission_percentages,
         reserve_account,
         stake_authority,
