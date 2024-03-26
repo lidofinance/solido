@@ -320,7 +320,7 @@ impl<'a> Snapshot<'a> {
         let account = self.get_account(address)?;
         let mut pubkey_buf: [u8; 32] = Default::default();
         // Read 32 bytes for Pubkey.
-        pubkey_buf.copy_from_slice(&account.data[..32]);
+        pubkey_buf.copy_from_slice(&account.data[4..36]);
         let node_pubkey = Pubkey::new_from_array(pubkey_buf);
         Ok(node_pubkey)
     }
