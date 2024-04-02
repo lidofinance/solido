@@ -5,6 +5,7 @@ use std::convert::TryFrom;
 use std::{fmt, path::PathBuf};
 
 use serde::Serialize;
+use solana_program::rent::Rent;
 use solana_program::{pubkey::Pubkey, system_instruction};
 use solana_sdk::{
     account::ReadableAccount,
@@ -22,6 +23,7 @@ use lido::{
     vote_state::get_vote_account_commission,
     MINT_AUTHORITY, RESERVE_ACCOUNT, STAKE_AUTHORITY,
 };
+use solana_stake_program::stake_state::StakeState;
 use solido_cli_common::{
     error::{CliError, Error},
     snapshot::{SnapshotClientConfig, SnapshotConfig},
@@ -963,7 +965,19 @@ pub fn command_withdraw(
             .position(heaviest_validator.pubkey())
             .ok_or_else(|| CliError::new("Pubkey not found in validator list"))?;
 
-        let instr = lido::instruction::withdraw(
+        let mut instructions = Vec::new();
+
+        // We need to fund a new stake account so it is rent-exempt https://github.com/solana-labs/solana/issues/33300.
+        let rent = Rent::default();
+        let minimum_rent_exempt_balance =
+            Lamports(rent.minimum_balance(std::mem::size_of::<StakeState>()));
+        instructions.push(system_instruction::transfer(
+            &config.signer.pubkey(),
+            &destination_stake_account.pubkey(),
+            minimum_rent_exempt_balance.0,
+        ));
+
+        instructions.push(lido::instruction::withdraw(
             opts.solido_program_id(),
             &lido::instruction::WithdrawAccountsMetaV2 {
                 lido: *opts.solido_address(),
@@ -978,8 +992,11 @@ pub fn command_withdraw(
             },
             *opts.amount_st_sol(),
             validator_index,
-        );
-        config.sign_and_send_transaction(&[instr], &[config.signer, &destination_stake_account])?;
+        ));
+        config.sign_and_send_transaction(
+            &instructions,
+            &[config.signer, &destination_stake_account],
+        )?;
 
         Ok((st_sol_address, destination_stake_account))
     })?;
