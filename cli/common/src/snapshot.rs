@@ -53,7 +53,7 @@ use spl_token::solana_program::hash::Hash;
 use crate::error::{
     self, Error, MissingAccountError, MissingValidatorInfoError, SerializationError,
 };
-use crate::validator_info_utils::ValidatorInfo;
+//use crate::validator_info_utils::ValidatorInfo;
 
 pub enum SnapshotError {
     /// We tried to access an account, but it was not present in the snapshot.
@@ -299,18 +299,32 @@ impl<'a> Snapshot<'a> {
 
     /// Read and parse the vote account at the given address.
     pub fn get_vote_account(&mut self, address: &Pubkey) -> crate::Result<VoteState> {
-        let vote_account = self.get_account(address)?;
-        let vote_state = VoteState::deserialize(vote_account.data()).map_err(|err| {
+        let account = self.get_account(address)?;
+        let mut pubkey_buf: [u8; 32] = Default::default();
+        // Read 32 bytes for Pubkey.
+        pubkey_buf.copy_from_slice(&account.data[..32]);
+        let node_pubkey = Pubkey::new_from_array(pubkey_buf);
+        let vote_state = VoteState::from(account).ok_or_else(|| {
             let wrapped_err = SerializationError {
                 context: "While deserializing vote account.".to_string(),
-                cause: Some(err.into()),
+                cause: None,
                 address: *address,
             };
             let result: Error = Box::new(wrapped_err);
             result
-        })?;
+        })?; 
         Ok(vote_state)
     }
+
+    pub fn get_node_pubkey(&mut self, address: &Pubkey) -> crate::Result<Pubkey> {
+        let account = self.get_account(address)?;
+        let mut pubkey_buf: [u8; 32] = Default::default();
+        // Read 32 bytes for Pubkey.
+        pubkey_buf.copy_from_slice(&account.data[4..36]);
+        let node_pubkey = Pubkey::new_from_array(pubkey_buf);
+        Ok(node_pubkey)
+    }
+    
 
     /// Return the minimum rent-exempt balance for an account with `data_len` bytes of data.
     pub fn get_minimum_balance_for_rent_exemption(
@@ -322,7 +336,7 @@ impl<'a> Snapshot<'a> {
     }
 
     /// Return the metadata of the validator with the given identity account.
-    pub fn get_validator_info(
+   /*  pub fn get_validator_info(
         &mut self,
         validator_identity: &Pubkey,
     ) -> crate::Result<ValidatorInfo> {
@@ -346,7 +360,7 @@ impl<'a> Snapshot<'a> {
             // We need to refresh our mapping.
             Err(SnapshotError::MissingValidatorIdentity(*validator_identity))
         }
-    }
+    } */
 
     /// Read the account and deserialize the Solido struct.
     pub fn get_solido(&mut self, solido_address: &Pubkey) -> crate::Result<Lido> {
@@ -646,10 +660,11 @@ impl SnapshotClient {
                     // account for, so we need to reload those. After we do,
                     // confirm that the validator identity is there, otherwise
                     // we would get stuck in an infinite loop.
-                    self.validator_info_addrs =
+                   /*  self.validator_info_addrs =
                         crate::validator_info_utils::get_validator_info_accounts(
                             &mut self.rpc_client,
                         )?;
+                        */
 
                     if !self.validator_info_addrs.contains_key(&identity_addr) {
                         return Err(Box::new(MissingValidatorInfoError {
