@@ -469,7 +469,6 @@ impl SolidoState {
                         .push(get_account_balance_except_rent(&rent, identity_account));
                     //validator_infos.push(validator_info);
                     validator_vote_accounts.push(None);
-                    println!("validator_vote_accounts = none");
                     //validator_vote_accounts.push(Some(vote_state));
                 }
                 Err(err) => match err {
