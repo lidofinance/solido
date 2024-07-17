@@ -505,8 +505,8 @@ impl SolidoState {
         }
 
         let mut maintainer_balances = Vec::new();
+        let empty_account = Account::default();
         for maintainer in maintainers.entries.iter() {
-            let empty_account = Account::default();
             let account = match config.client.get_account(maintainer.pubkey()) {
                 Ok(account) => account,
                 Err(err) => {
