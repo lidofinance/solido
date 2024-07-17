@@ -506,9 +506,15 @@ impl SolidoState {
 
         let mut maintainer_balances = Vec::new();
         for maintainer in maintainers.entries.iter() {
-            maintainer_balances.push(Lamports(
-                config.client.get_account(maintainer.pubkey())?.lamports,
-            ));
+            let empty_account = Account::default();
+            let account = match config.client.get_account(maintainer.pubkey()) {
+                Ok(account) => account,
+                Err(err) => {
+                    eprintln!("Failed to get account for maintainer: {:?}", maintainer.pubkey());
+                    &empty_account
+                }
+            };
+            maintainer_balances.push(Lamports(account.lamports));
         }
 
         // The entity executing the maintenance transactions, is the maintainer.
