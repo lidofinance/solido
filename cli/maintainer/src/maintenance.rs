@@ -510,7 +510,6 @@ impl SolidoState {
             let account = match config.client.get_account(maintainer.pubkey()) {
                 Ok(account) => account,
                 Err(err) => {
-                    eprintln!("Failed to get account for maintainer: {:?}", maintainer.pubkey());
                     &empty_account
                 }
             };
